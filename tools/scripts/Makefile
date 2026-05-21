@@ -203,7 +203,7 @@ includes = -I$(BUILD_DIR)
 #               |            |                |            |               |            |            |              |
 #               v            v                v            v               v            v            v              v
 #                                                                                                -Wno-SIDEEFFECT
-suppress = -Wno-WIDTH -Wno-UNOPTFLAT -Wno-LITENDIAN -Wno-CMPCONST -Wno-MULTIDRIVEN -Wno-UNPACKED                 -Wno-LATCH
+suppress = -Wno-WIDTH -Wno-UNOPTFLAT -Wno-LITENDIAN -Wno-CMPCONST -Wno-MULTIDRIVEN -Wno-UNPACKED -Wno-SIDEEFFECT -Wno-MISINDENT -Wno-LATCH
 
 # CFLAGS for verilator generated Makefiles. Without -std=c++17 it
 # complains for `auto` variables
@@ -371,4 +371,3 @@ help:
 	@echo Possible targets: verilator vcs irun vlog riviera help clean all verilator-build irun-build vcs-build riviera-build program.hex
 
 .PHONY: help clean clean_fw verilator vcs irun vlog riviera
-
