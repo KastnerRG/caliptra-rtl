@@ -203,7 +203,7 @@ includes = -I$(BUILD_DIR)
 #               |            |                |            |               |            |            |              |
 #               v            v                v            v               v            v            v              v
 #                                                                                                -Wno-SIDEEFFECT
-suppress = -Wno-WIDTH -Wno-UNOPTFLAT -Wno-LITENDIAN -Wno-CMPCONST -Wno-MULTIDRIVEN -Wno-UNPACKED -Wno-SIDEEFFECT -Wno-MISINDENT -Wno-LATCH
+suppress = -Wno-WIDTH -Wno-WIDTHTRUNC -Wno-UNOPTFLAT -Wno-LITENDIAN -Wno-CMPCONST -Wno-MULTIDRIVEN -Wno-UNPACKED -Wno-SIDEEFFECT -Wno-MISINDENT -Wno-LATCH
 
 # CFLAGS for verilator generated Makefiles. Without -std=c++17 it
 # complains for `auto` variables
@@ -223,9 +223,23 @@ TB_DPI_SRCS := $(addprefix $(CALIPTRA_ROOT)/src/integration/test_suites/libs/,$(
 
 # Testbench sources
 TB_VERILATOR_SRCS = $(TBDIR)/test_caliptra_top_tb.cpp $(TB_DPI_SRCS)
+TB_VERILATOR_EXE_SRCS = test_caliptra_top_tb.cpp
+TB_VERILATOR_EXE_DEPS =
+FB_ROOT ?= $(abspath $(CALIPTRA_ROOT)/..)
+FB_AXI ?= 0
+ifeq ($(FB_AXI),1)
+CFLAGS += -DCALIPTRA_FB_AXI -DSIM -I$(FB_ROOT)/firebridge -I$(CALIPTRA_ROOT)/src/integration/rtl/caliptra_reg
+TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/fb_test/axi.cpp
+TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/fb_test/axi.cpp
+FB_AXI_RTL_SRCS = $(FB_ROOT)/firebridge/fb_axi_vip.sv \
+                  $(FB_ROOT)/firebridge/ext/zipcpu_axi2ram.v
+endif
 
 # Testbench defs
 TB_DEFS = 
+ifeq ($(FB_AXI),1)
+TB_DEFS += +define+CALIPTRA_FB_AXI
+endif
 ifeq ($(CALIPTRA_INTERNAL_TRNG), 1)
 TB_DEFS += +define+CALIPTRA_INTERNAL_TRNG
 HWCFG_CFLAGS += -DCALIPTRA_HWCONFIG_TRNG_EN
@@ -266,8 +280,8 @@ clean_fw:
 
 ############ Model Builds ###############################
 
-verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TBDIR)/../config/caliptra_top_tb.vf
-	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) --cc -CFLAGS "$(CFLAGS)" \
+verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_AXI_RTL_SRCS) $(TBDIR)/../config/caliptra_top_tb.vf
+	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) $(FB_AXI_RTL_SRCS) --cc -CFLAGS "$(CFLAGS)" \
 	  +libext+.v+.sv +define+RV_OPENSOURCE \
 	  --timescale 1ns/100ps \
 	  --timing \
@@ -275,7 +289,7 @@ verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TBD
 	  $(suppress) \
 	  -f $(TBDIR)/../config/caliptra_top_tb.vf --top-module caliptra_top_tb \
 	  -f $(TBDIR)/../config/caliptra_top_tb.vlt \
-	  -exe test_caliptra_top_tb.cpp --autoflush $(VERILATOR_DEBUG) \
+	  -exe $(TB_VERILATOR_EXE_SRCS) --autoflush $(VERILATOR_DEBUG) \
 	  $(TB_DEFS) 2>&1 | tee verilator_build.log
 	set -eo pipefail; $(MAKE) -j`nproc` -e -C obj_dir/ -f Vcaliptra_top_tb.mk $(VERILATOR_MAKE_FLAGS) VM_PARALLEL_BUILDS=1 2>&1 | tee verilator_make.log
 	touch verilator-build

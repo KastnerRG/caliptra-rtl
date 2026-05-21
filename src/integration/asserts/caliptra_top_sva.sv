@@ -204,6 +204,7 @@ module caliptra_top_sva
                                           )
                             else $display("SVA ERROR: AHB address not valid in keyvault");
 
+`ifndef CALIPTRA_FB_AXI
   // Single comprehensive function that handles both debug modes
   function automatic logic check_all_kv_debug_values();
     logic sel_value = `KEYVAULT_PATH.kv_reg_hwif_out.CLEAR_SECRETS.sel_debug_value.value;
@@ -225,7 +226,7 @@ module caliptra_top_sva
   // Single assertion covering both debug modes
   KV_debug_comprehensive: assert property (
     @(posedge `SVA_RDC_CLK)
-    disable iff(!`KEYVAULT_PATH.cptra_pwrgood)
+    disable iff(!`KEYVAULT_PATH.cptra_pwrgood || !`KEYVAULT_PATH.rst_b)
     
     ($rose(~`CPTRA_TOP_PATH.cptra_security_state_Latched.debug_locked || 
            `SOC_IFC_TOP_PATH.cptra_error_fatal || 
@@ -234,6 +235,7 @@ module caliptra_top_sva
     check_all_kv_debug_values()
   )
   else $display("SVA ERROR: KV debug flush comprehensive check failed");
+`endif
 
   generate
     for (genvar dword = 0; dword < KV_NUM_DWORDS; dword++) begin

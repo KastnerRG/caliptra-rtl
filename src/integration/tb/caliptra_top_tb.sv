@@ -93,6 +93,249 @@ module caliptra_top_tb (
         .UW(CPTRA_AXI_DMA_USER_WIDTH)
     ) m_axi_if (.clk(core_clk), .rst_n(cptra_rst_b));
 
+`ifdef CALIPTRA_FB_AXI
+    logic firebridge_done;
+
+    logic [0:0][`CALIPTRA_AXI_ID_WIDTH-1:0]                       fb_s_axi_awid;
+    logic [0:0][`CALIPTRA_SLAVE_ADDR_WIDTH(`CALIPTRA_SLAVE_SEL_SOC_IFC)-1:0] fb_s_axi_awaddr;
+    logic [0:0][7:0]                                               fb_s_axi_awlen;
+    logic [0:0][`CALIPTRA_AXI_USER_WIDTH-1:0]                      fb_s_axi_awuser;
+    logic [0:0][2:0]                                               fb_s_axi_awsize;
+    logic [0:0][1:0]                                               fb_s_axi_awburst;
+    logic [0:0]                                                    fb_s_axi_awlock;
+    logic [0:0][3:0]                                               fb_s_axi_awcache;
+    logic [0:0][2:0]                                               fb_s_axi_awprot;
+    logic [0:0]                                                    fb_s_axi_awvalid;
+    logic [0:0]                                                    fb_s_axi_awready;
+    logic [0:0][`CALIPTRA_AXI_DATA_WIDTH-1:0]                      fb_s_axi_wdata;
+    logic [0:0][(`CALIPTRA_AXI_DATA_WIDTH/8)-1:0]                  fb_s_axi_wstrb;
+    logic [0:0]                                                    fb_s_axi_wlast;
+    logic [0:0]                                                    fb_s_axi_wvalid;
+    logic [0:0]                                                    fb_s_axi_wready;
+    logic [0:0][`CALIPTRA_AXI_ID_WIDTH-1:0]                        fb_s_axi_bid;
+    logic [0:0][1:0]                                               fb_s_axi_bresp;
+    logic [0:0]                                                    fb_s_axi_bvalid;
+    logic [0:0]                                                    fb_s_axi_bready;
+    logic [0:0][`CALIPTRA_AXI_ID_WIDTH-1:0]                        fb_s_axi_arid;
+    logic [0:0][`CALIPTRA_SLAVE_ADDR_WIDTH(`CALIPTRA_SLAVE_SEL_SOC_IFC)-1:0] fb_s_axi_araddr;
+    logic [0:0][7:0]                                               fb_s_axi_arlen;
+    logic [0:0][`CALIPTRA_AXI_USER_WIDTH-1:0]                      fb_s_axi_aruser;
+    logic [0:0][2:0]                                               fb_s_axi_arsize;
+    logic [0:0][1:0]                                               fb_s_axi_arburst;
+    logic [0:0]                                                    fb_s_axi_arlock;
+    logic [0:0][3:0]                                               fb_s_axi_arcache;
+    logic [0:0][2:0]                                               fb_s_axi_arprot;
+    logic [0:0]                                                    fb_s_axi_arvalid;
+    logic [0:0]                                                    fb_s_axi_arready;
+    logic [0:0][`CALIPTRA_AXI_ID_WIDTH-1:0]                        fb_s_axi_rid;
+    logic [0:0][`CALIPTRA_AXI_DATA_WIDTH-1:0]                      fb_s_axi_rdata;
+    logic [0:0][1:0]                                               fb_s_axi_rresp;
+    logic [0:0]                                                    fb_s_axi_rlast;
+    logic [0:0]                                                    fb_s_axi_rvalid;
+    logic [0:0]                                                    fb_s_axi_rready;
+
+    assign m_axi_bfm_if.awid    = fb_s_axi_awid[0];
+    assign m_axi_bfm_if.awaddr  = fb_s_axi_awaddr[0];
+    assign m_axi_bfm_if.awlen   = fb_s_axi_awlen[0];
+    assign m_axi_bfm_if.awuser  = fb_s_axi_awuser[0];
+    assign m_axi_bfm_if.awsize  = fb_s_axi_awsize[0];
+    assign m_axi_bfm_if.awburst = fb_s_axi_awburst[0];
+    assign m_axi_bfm_if.awlock  = fb_s_axi_awlock[0];
+    assign m_axi_bfm_if.awvalid = fb_s_axi_awvalid[0];
+    assign m_axi_bfm_if.wdata   = fb_s_axi_wdata[0];
+    assign m_axi_bfm_if.wstrb   = fb_s_axi_wstrb[0];
+    assign m_axi_bfm_if.wuser   = '0;
+    assign m_axi_bfm_if.wlast   = fb_s_axi_wlast[0];
+    assign m_axi_bfm_if.wvalid  = fb_s_axi_wvalid[0];
+    assign m_axi_bfm_if.bready  = fb_s_axi_bready[0];
+    assign m_axi_bfm_if.arid    = fb_s_axi_arid[0];
+    assign m_axi_bfm_if.araddr  = fb_s_axi_araddr[0];
+    assign m_axi_bfm_if.arlen   = fb_s_axi_arlen[0];
+    assign m_axi_bfm_if.aruser  = fb_s_axi_aruser[0];
+    assign m_axi_bfm_if.arsize  = fb_s_axi_arsize[0];
+    assign m_axi_bfm_if.arburst = fb_s_axi_arburst[0];
+    assign m_axi_bfm_if.arlock  = fb_s_axi_arlock[0];
+    assign m_axi_bfm_if.arvalid = fb_s_axi_arvalid[0];
+    assign m_axi_bfm_if.rready  = fb_s_axi_rready[0];
+
+    assign fb_s_axi_awready[0] = m_axi_bfm_if.awready;
+    assign fb_s_axi_wready [0] = m_axi_bfm_if.wready;
+    assign fb_s_axi_bid    [0] = m_axi_bfm_if.bid;
+    assign fb_s_axi_bresp  [0] = m_axi_bfm_if.bresp;
+    assign fb_s_axi_bvalid [0] = m_axi_bfm_if.bvalid;
+    assign fb_s_axi_arready[0] = m_axi_bfm_if.arready;
+    assign fb_s_axi_rid    [0] = m_axi_bfm_if.rid;
+    assign fb_s_axi_rdata  [0] = m_axi_bfm_if.rdata;
+    assign fb_s_axi_rresp  [0] = m_axi_bfm_if.rresp;
+    assign fb_s_axi_rlast  [0] = m_axi_bfm_if.rlast;
+    assign fb_s_axi_rvalid [0] = m_axi_bfm_if.rvalid;
+
+    logic [0:0][CPTRA_AXI_DMA_ID_WIDTH-1:0]       fb_m_axi_awid;
+    logic [0:0][`CALIPTRA_AXI_DMA_ADDR_WIDTH-1:0] fb_m_axi_awaddr;
+    logic [0:0][7:0]                              fb_m_axi_awlen;
+    logic [0:0][2:0]                              fb_m_axi_awsize;
+    logic [0:0][1:0]                              fb_m_axi_awburst;
+    logic [0:0]                                   fb_m_axi_awlock;
+    logic [0:0][3:0]                              fb_m_axi_awcache;
+    logic [0:0][2:0]                              fb_m_axi_awprot;
+    logic [0:0]                                   fb_m_axi_awvalid;
+    logic [0:0]                                   fb_m_axi_awready;
+    logic [0:0][CPTRA_AXI_DMA_DATA_WIDTH-1:0]     fb_m_axi_wdata;
+    logic [0:0][(CPTRA_AXI_DMA_DATA_WIDTH/8)-1:0] fb_m_axi_wstrb;
+    logic [0:0]                                   fb_m_axi_wlast;
+    logic [0:0]                                   fb_m_axi_wvalid;
+    logic [0:0]                                   fb_m_axi_wready;
+    logic [0:0][CPTRA_AXI_DMA_ID_WIDTH-1:0]       fb_m_axi_bid;
+    logic [0:0][1:0]                              fb_m_axi_bresp;
+    logic [0:0]                                   fb_m_axi_bvalid;
+    logic [0:0]                                   fb_m_axi_bready;
+    logic [0:0][CPTRA_AXI_DMA_ID_WIDTH-1:0]       fb_m_axi_arid;
+    logic [0:0][`CALIPTRA_AXI_DMA_ADDR_WIDTH-1:0] fb_m_axi_araddr;
+    logic [0:0][7:0]                              fb_m_axi_arlen;
+    logic [0:0][2:0]                              fb_m_axi_arsize;
+    logic [0:0][1:0]                              fb_m_axi_arburst;
+    logic [0:0]                                   fb_m_axi_arlock;
+    logic [0:0][3:0]                              fb_m_axi_arcache;
+    logic [0:0][2:0]                              fb_m_axi_arprot;
+    logic [0:0]                                   fb_m_axi_arvalid;
+    logic [0:0]                                   fb_m_axi_arready;
+    logic [0:0][CPTRA_AXI_DMA_ID_WIDTH-1:0]       fb_m_axi_rid;
+    logic [0:0][CPTRA_AXI_DMA_DATA_WIDTH-1:0]     fb_m_axi_rdata;
+    logic [0:0][1:0]                              fb_m_axi_rresp;
+    logic [0:0]                                   fb_m_axi_rlast;
+    logic [0:0]                                   fb_m_axi_rvalid;
+    logic [0:0]                                   fb_m_axi_rready;
+
+    assign fb_m_axi_awid[0]    = m_axi_if.awid;
+    assign fb_m_axi_awaddr[0]  = m_axi_if.awaddr;
+    assign fb_m_axi_awlen[0]   = m_axi_if.awlen;
+    assign fb_m_axi_awsize[0]  = m_axi_if.awsize;
+    assign fb_m_axi_awburst[0] = m_axi_if.awburst;
+    assign fb_m_axi_awlock[0]  = m_axi_if.awlock;
+    assign fb_m_axi_awcache[0] = '0;
+    assign fb_m_axi_awprot[0]  = '0;
+    assign fb_m_axi_awvalid[0] = m_axi_if.awvalid;
+    assign fb_m_axi_wdata[0]   = m_axi_if.wdata;
+    assign fb_m_axi_wstrb[0]   = m_axi_if.wstrb;
+    assign fb_m_axi_wlast[0]   = m_axi_if.wlast;
+    assign fb_m_axi_wvalid[0]  = m_axi_if.wvalid;
+    assign fb_m_axi_bready[0]  = m_axi_if.bready;
+    assign fb_m_axi_arid[0]    = m_axi_if.arid;
+    assign fb_m_axi_araddr[0]  = m_axi_if.araddr;
+    assign fb_m_axi_arlen[0]   = m_axi_if.arlen;
+    assign fb_m_axi_arsize[0]  = m_axi_if.arsize;
+    assign fb_m_axi_arburst[0] = m_axi_if.arburst;
+    assign fb_m_axi_arlock[0]  = m_axi_if.arlock;
+    assign fb_m_axi_arcache[0] = '0;
+    assign fb_m_axi_arprot[0]  = '0;
+    assign fb_m_axi_arvalid[0] = m_axi_if.arvalid;
+    assign fb_m_axi_rready[0]  = m_axi_if.rready;
+
+    assign m_axi_if.awready = fb_m_axi_awready[0];
+    assign m_axi_if.wready  = fb_m_axi_wready[0];
+    assign m_axi_if.bid     = fb_m_axi_bid[0];
+    assign m_axi_if.bresp   = fb_m_axi_bresp[0];
+    assign m_axi_if.buser   = '0;
+    assign m_axi_if.bvalid  = fb_m_axi_bvalid[0];
+    assign m_axi_if.arready = fb_m_axi_arready[0];
+    assign m_axi_if.rid     = fb_m_axi_rid[0];
+    assign m_axi_if.rdata   = fb_m_axi_rdata[0];
+    assign m_axi_if.rresp   = fb_m_axi_rresp[0];
+    assign m_axi_if.ruser   = '0;
+    assign m_axi_if.rlast   = fb_m_axi_rlast[0];
+    assign m_axi_if.rvalid  = fb_m_axi_rvalid[0];
+
+    fb_axi_vip #(
+        .S_COUNT(1),
+        .M_COUNT(1),
+        .S_AXI_DATA_WIDTH(`CALIPTRA_AXI_DATA_WIDTH),
+        .S_AXI_ID_WIDTH(`CALIPTRA_AXI_ID_WIDTH),
+        .S_AXI_ADDR_WIDTH(`CALIPTRA_SLAVE_ADDR_WIDTH(`CALIPTRA_SLAVE_SEL_SOC_IFC)),
+        .S_AXI_USER_WIDTH(`CALIPTRA_AXI_USER_WIDTH),
+        .S_AXI_USER_VALUE(32'h0),
+        .S_AXI_BASE_ADDR({32'h0}),
+        .M_AXI_DATA_WIDTH(CPTRA_AXI_DMA_DATA_WIDTH),
+        .M_AXI_ADDR_WIDTH(`CALIPTRA_AXI_DMA_ADDR_WIDTH),
+        .M_AXI_ID_WIDTH(CPTRA_AXI_DMA_ID_WIDTH)
+    ) fb_axi_i (
+        .clk(core_clk),
+        .rstn(cptra_rst_b),
+        .firebridge_done(firebridge_done),
+        .s_axi_awid(fb_s_axi_awid),
+        .s_axi_awaddr(fb_s_axi_awaddr),
+        .s_axi_awlen(fb_s_axi_awlen),
+        .s_axi_awuser(fb_s_axi_awuser),
+        .s_axi_awsize(fb_s_axi_awsize),
+        .s_axi_awburst(fb_s_axi_awburst),
+        .s_axi_awlock(fb_s_axi_awlock),
+        .s_axi_awcache(fb_s_axi_awcache),
+        .s_axi_awprot(fb_s_axi_awprot),
+        .s_axi_awvalid(fb_s_axi_awvalid),
+        .s_axi_awready(fb_s_axi_awready),
+        .s_axi_wdata(fb_s_axi_wdata),
+        .s_axi_wstrb(fb_s_axi_wstrb),
+        .s_axi_wlast(fb_s_axi_wlast),
+        .s_axi_wvalid(fb_s_axi_wvalid),
+        .s_axi_wready(fb_s_axi_wready),
+        .s_axi_bid(fb_s_axi_bid),
+        .s_axi_bresp(fb_s_axi_bresp),
+        .s_axi_bvalid(fb_s_axi_bvalid),
+        .s_axi_bready(fb_s_axi_bready),
+        .s_axi_arid(fb_s_axi_arid),
+        .s_axi_araddr(fb_s_axi_araddr),
+        .s_axi_arlen(fb_s_axi_arlen),
+        .s_axi_aruser(fb_s_axi_aruser),
+        .s_axi_arsize(fb_s_axi_arsize),
+        .s_axi_arburst(fb_s_axi_arburst),
+        .s_axi_arlock(fb_s_axi_arlock),
+        .s_axi_arcache(fb_s_axi_arcache),
+        .s_axi_arprot(fb_s_axi_arprot),
+        .s_axi_arvalid(fb_s_axi_arvalid),
+        .s_axi_arready(fb_s_axi_arready),
+        .s_axi_rid(fb_s_axi_rid),
+        .s_axi_rdata(fb_s_axi_rdata),
+        .s_axi_rresp(fb_s_axi_rresp),
+        .s_axi_rlast(fb_s_axi_rlast),
+        .s_axi_rvalid(fb_s_axi_rvalid),
+        .s_axi_rready(fb_s_axi_rready),
+        .m_axi_awid(fb_m_axi_awid),
+        .m_axi_awaddr(fb_m_axi_awaddr),
+        .m_axi_awlen(fb_m_axi_awlen),
+        .m_axi_awsize(fb_m_axi_awsize),
+        .m_axi_awburst(fb_m_axi_awburst),
+        .m_axi_awlock(fb_m_axi_awlock),
+        .m_axi_awcache(fb_m_axi_awcache),
+        .m_axi_awprot(fb_m_axi_awprot),
+        .m_axi_awvalid(fb_m_axi_awvalid),
+        .m_axi_awready(fb_m_axi_awready),
+        .m_axi_wdata(fb_m_axi_wdata),
+        .m_axi_wstrb(fb_m_axi_wstrb),
+        .m_axi_wlast(fb_m_axi_wlast),
+        .m_axi_wvalid(fb_m_axi_wvalid),
+        .m_axi_wready(fb_m_axi_wready),
+        .m_axi_bid(fb_m_axi_bid),
+        .m_axi_bresp(fb_m_axi_bresp),
+        .m_axi_bvalid(fb_m_axi_bvalid),
+        .m_axi_bready(fb_m_axi_bready),
+        .m_axi_arid(fb_m_axi_arid),
+        .m_axi_araddr(fb_m_axi_araddr),
+        .m_axi_arlen(fb_m_axi_arlen),
+        .m_axi_arsize(fb_m_axi_arsize),
+        .m_axi_arburst(fb_m_axi_arburst),
+        .m_axi_arlock(fb_m_axi_arlock),
+        .m_axi_arcache(fb_m_axi_arcache),
+        .m_axi_arprot(fb_m_axi_arprot),
+        .m_axi_arvalid(fb_m_axi_arvalid),
+        .m_axi_arready(fb_m_axi_arready),
+        .m_axi_rid(fb_m_axi_rid),
+        .m_axi_rdata(fb_m_axi_rdata),
+        .m_axi_rresp(fb_m_axi_rresp),
+        .m_axi_rlast(fb_m_axi_rlast),
+        .m_axi_rvalid(fb_m_axi_rvalid),
+        .m_axi_rready(fb_m_axi_rready)
+    );
+`endif
+
     logic ready_for_fuses;
     logic ready_for_mb_processing;
     logic mailbox_data_avail;
@@ -141,7 +384,7 @@ module caliptra_top_tb (
     end // clk_gen
 `endif
 
-
+`ifndef CALIPTRA_FB_AXI
 caliptra_top_tb_soc_bfm soc_bfm_inst (
     .core_clk        (core_clk        ),
 
@@ -186,6 +429,30 @@ caliptra_top_tb_soc_bfm soc_bfm_inst (
     .deassert_rst_flag_from_service(deassert_rst_flag_from_service)
 
 );
+`else
+initial begin
+    logic [0:`CLP_OBF_KEY_DWORDS-1][31:0] cptra_obfkey_tb_fb;
+
+    cptra_pwrgood = 1'b0;
+    cptra_rst_b = 1'b0;
+    BootFSM_BrkPoint = 1'b1;
+    cptra_obfkey_tb_fb = 256'h31358e8af34d6ac31c958bbd5c8fb33c334714bffb41700d28b07f11cfe891e7;
+    for (int dword = 0; dword < $bits(cptra_obf_key)/32; dword++) begin
+        cptra_obf_key[dword] = cptra_obfkey_tb_fb[dword];
+    end
+    for (int dword = 0; dword < `CLP_CSR_HMAC_KEY_DWORDS; dword++) begin
+        cptra_csr_hmac_key[dword] = 32'h0b0b0b0b;
+    end
+    strap_ss_key_release_key_size = 16'h40;
+    strap_ss_key_release_base_addr = AXI_SRAM_BASE_ADDR;
+    ss_ocp_lock_en = 1'b0;
+    generic_input_wires = '0;
+    repeat (15) @(posedge core_clk);
+    cptra_pwrgood = 1'b1;
+    repeat (5) @(posedge core_clk);
+    cptra_rst_b = 1'b1;
+end
+`endif
     
 // JTAG DPI
 jtagdpi #(
@@ -384,6 +651,7 @@ caliptra_top_tb_services #(
 
 );
 
+`ifndef CALIPTRA_FB_AXI
 caliptra_top_tb_axi_complex tb_axi_complex_i (
     .core_clk           (core_clk           ),
     .cptra_rst_b        (cptra_rst_b        ),
@@ -392,8 +660,11 @@ caliptra_top_tb_axi_complex tb_axi_complex_i (
     .ctrl               (axi_complex_ctrl   ),
     .axi_error_inj_en   (axi_error_inj_en)
 );
+`else
+assign recovery_data_avail = 1'b0;
+`endif
 
-//=========================================================================-
+//=========================================================================- 
 // SVA
 //=========================================================================-
 caliptra_top_sva sva();

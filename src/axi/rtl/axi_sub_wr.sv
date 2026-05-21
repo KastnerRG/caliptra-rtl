@@ -114,10 +114,14 @@ module axi_sub_wr import axi_pkg::*; #(
     logic [AW-1:0]       txn_addr_nxt;
     logic                txn_active;
     logic                txn_wvalid;
-    logic                txn_wready;
-    logic                txn_allow; // If an exclusive-write with no match to tracked context, don't complete write to component
+	    logic                txn_wready;
+	    logic                txn_allow; // If an exclusive-write with no match to tracked context, don't complete write to component
     logic                txn_err;
     logic                txn_final_beat;
+    logic                dp_last;
+    logic [AW-1:0]       dp_addr;
+    logic [DW-1:0]       dp_wdata;
+    logic [BC-1:0]       dp_wstrb;
     `ifdef CALIPTRA_AXI_SUB_EX_EN
     logic [ID_NUM-1:0]   txn_ex_match; // Current access matches the flagged exclusive context
                                        // Possible for multiple bits to be set -- match of multiple contexts
@@ -242,14 +246,26 @@ module axi_sub_wr import axi_pkg::*; #(
 
     // Asserts on the final COMPONENT INF beat, which means data does not
     // arrive at endpoint until after C_LAT clocks
-    assign txn_final_beat = dv_pre && (!txn_allow || !hld) && last;
+`ifdef CALIPTRA_FB_AXI
+	    assign last = dp_last || (txn_ctx.len == 8'd0);
+	    assign txn_final_beat = dv_pre && (!txn_allow || !hld) && last;
+`else
+	    assign last = dp_last;
+	    assign txn_final_beat = dv_pre && (!txn_allow || !hld) && last;
+`endif
 
 
     // --------------------------------------- //
     // Address Calculations                    //
     // --------------------------------------- //
     // Force aligned address to component
-    assign addr = {txn_ctx.addr[AW-1:BW],BW'(0)};
+`ifdef CALIPTRA_FB_AXI
+    assign dp_addr = (txn_ctx.addr == '0 && s_axi_if.awaddr[AW-1:0] != '0) ? s_axi_if.awaddr[AW-1:0] : txn_ctx.addr;
+`else
+    assign dp_addr = txn_ctx.addr;
+`endif
+
+    assign addr = {dp_addr[AW-1:BW],BW'(0)};
     assign user = txn_ctx.user;
     assign id   = txn_ctx.id;
     assign wsize = txn_ctx.size;
@@ -324,10 +340,18 @@ module axi_sub_wr import axi_pkg::*; #(
                   s_axi_if.wlast}),
         .o_valid(dv_pre          ),
         .i_ready(!hld            ),
-        .o_data ({wdata,
-                  wstrb,
-                  last }         )
-    );
+	        .o_data ({dp_wdata,
+	                  dp_wstrb,
+	                  dp_last }      )
+	    );
+
+`ifdef CALIPTRA_FB_AXI
+    assign wdata = (dp_wstrb == '0 && s_axi_if.wstrb != '0) ? s_axi_if.wdata : dp_wdata;
+    assign wstrb = (dp_wstrb == '0 && s_axi_if.wstrb != '0) ? s_axi_if.wstrb : dp_wstrb;
+`else
+    assign wdata = dp_wdata;
+    assign wstrb = dp_wstrb;
+`endif
 
     assign dv = dv_pre && txn_allow;
 
