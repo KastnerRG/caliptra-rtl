@@ -59,12 +59,7 @@ extern "C" void at_posedge_clk() {
   vluint8_t prev_clk = get_clk();
   while (true) {
     step_time_veri();
-    if (prev_clk == 0 && get_clk() == 1) {
-      for (int i = 0; i < 10; i++) {
-        step_time_veri();
-      }
-      break;
-    }
+    if (prev_clk == 0 && get_clk() == 1) break;
     prev_clk = get_clk();
   }
 }
