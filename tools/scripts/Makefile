@@ -235,10 +235,25 @@ FB_AXI_RTL_SRCS = $(FB_ROOT)/firebridge/fb_axi_vip.sv \
                   $(FB_ROOT)/firebridge/ext/zipcpu_axi2ram.v
 endif
 
+# FireBridge AHB (Mode B): VeeR compile-excluded, fb_ahb_vip drives the internal
+# AHB bus; fb_axi_vip still drives s_axi for the boot sequence. Implies FB_AXI.
+FB_AHB ?= 0
+ifeq ($(FB_AHB),1)
+CFLAGS += -DCALIPTRA_FB_AXI -DCALIPTRA_FB_AHB -DSIM -DAHB_SIM -I$(FB_ROOT)/firebridge -I$(CALIPTRA_ROOT)/src/integration/rtl/caliptra_reg
+TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/fb_test/ahb_fw.cpp
+TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/fb_test/ahb_fw.cpp
+FB_AHB_RTL_SRCS = $(FB_ROOT)/firebridge/fb_axi_vip.sv \
+                  $(FB_ROOT)/firebridge/fb_ahb_vip.sv \
+                  $(FB_ROOT)/firebridge/ext/zipcpu_axi2ram.v
+endif
+
 # Testbench defs
-TB_DEFS = 
+TB_DEFS =
 ifeq ($(FB_AXI),1)
 TB_DEFS += +define+CALIPTRA_FB_AXI
+endif
+ifeq ($(FB_AHB),1)
+TB_DEFS += +define+CALIPTRA_FB_AXI +define+CALIPTRA_FB_AHB
 endif
 ifeq ($(CALIPTRA_INTERNAL_TRNG), 1)
 TB_DEFS += +define+CALIPTRA_INTERNAL_TRNG
@@ -280,8 +295,8 @@ clean_fw:
 
 ############ Model Builds ###############################
 
-verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_AXI_RTL_SRCS) $(TBDIR)/../config/caliptra_top_tb.vf
-	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) $(FB_AXI_RTL_SRCS) --cc -CFLAGS "$(CFLAGS)" \
+verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_AXI_RTL_SRCS) $(FB_AHB_RTL_SRCS) $(TBDIR)/../config/caliptra_top_tb.vf
+	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) $(FB_AXI_RTL_SRCS) $(FB_AHB_RTL_SRCS) --cc -CFLAGS "$(CFLAGS)" \
 	  +libext+.v+.sv +define+RV_OPENSOURCE \
 	  --timescale 1ns/100ps \
 	  --timing \
