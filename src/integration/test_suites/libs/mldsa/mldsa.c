@@ -26,10 +26,10 @@ extern volatile caliptra_intr_received_s cptra_intr_rcv;
 void wait_for_mldsa_intr(){
     VPRINTF(LOW, "MLDSA flow in progress...\n");
     while((cptra_intr_rcv.abr_error == 0) & (cptra_intr_rcv.abr_notif == 0)){
-        __asm__ volatile ("wfi"); // "Wait for interrupt"
+        asm_wfi(); // "Wait for interrupt"
         // Sleep during MLDSA operation to allow ISR to execute and show idle time in sims
         for (uint16_t slp = 0; slp < 100; slp++) {
-            __asm__ volatile ("nop"); // Sleep loop as "nop"
+            asm_nop(); // Sleep loop as "nop"
         }
     };
     //VPRINTF(LOW, "Received MLDSA error intr with status = %d\n", cptra_intr_rcv.abr_error);

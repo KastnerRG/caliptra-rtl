@@ -37,4 +37,7 @@ inline void lsu_write_8(uintptr_t addr, uint8_t data) {
   volatile uint8_t *ptr = (volatile uint8_t *)addr;
   *ptr = data;
 }
+
+static inline void asm_wfi(void) { __asm__ volatile ("wfi"); }
+static inline void asm_nop(void) { __asm__ volatile ("nop"); }
 #endif /* RISCV_HW_IF_H */
