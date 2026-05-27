@@ -95,6 +95,14 @@ module caliptra_top_tb (
 
 `ifdef CALIPTRA_FB_AXI
     logic firebridge_done;
+`ifdef CALIPTRA_FB_AHB
+    // Mode B: VeeR is bypassed, so the C firmware (not VeeR STDOUT) ends the sim.
+    initial begin
+        wait (firebridge_done);
+        $display("FB_AHB: firebridge_done asserted, finishing simulation");
+        $finish;
+    end
+`endif
     localparam int FB_AXI_S_COUNT        = 2;
     localparam int FB_AXI_DATA_WIDTH_MAX = CPTRA_AXI_DMA_DATA_WIDTH;
     localparam int FB_AXI_STRB_WIDTH_MAX = FB_AXI_DATA_WIDTH_MAX/8;

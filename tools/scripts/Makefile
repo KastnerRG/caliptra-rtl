@@ -239,7 +239,7 @@ endif
 # AHB bus; fb_axi_vip still drives s_axi for the boot sequence. Implies FB_AXI.
 FB_AHB ?= 0
 ifeq ($(FB_AHB),1)
-CFLAGS += -DCALIPTRA_FB_AXI -DCALIPTRA_FB_AHB -DSIM -DAHB_SIM -I$(FB_ROOT)/firebridge -I$(CALIPTRA_ROOT)/src/integration/rtl/caliptra_reg
+CFLAGS += -DCALIPTRA_FB_AXI -DCALIPTRA_FB_AHB -DSIM -DAHB_SIM -DFB_TEST_$(TESTNAME) -I$(FB_ROOT)/firebridge -I$(CALIPTRA_ROOT)/src/integration/rtl/caliptra_reg
 TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/fb_test/ahb_fw.cpp
 TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/fb_test/ahb_fw.cpp
 FB_AHB_RTL_SRCS = $(FB_ROOT)/firebridge/fb_axi_vip.sv \

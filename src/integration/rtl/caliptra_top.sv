@@ -521,7 +521,9 @@ always_comb begin
 end
 
 el2_veer_wrapper rvtop (
-`ifdef CALIPTRA_FORCE_CPU_RESET
+`ifdef CALIPTRA_FB_AHB
+    .rst_l                  ( 1'b0 ),  // Mode B: VeeR bypassed, held in reset
+`elsif CALIPTRA_FORCE_CPU_RESET
     .rst_l                  ( 1'b0 ),
 `else
     .rst_l                  ( cptra_uc_rst_b),
@@ -668,6 +670,7 @@ el2_veer_wrapper rvtop (
     always_comb responder_inst[`CALIPTRA_SLAVE_SEL_IDMA].hresp     = responder_inst[`CALIPTRA_SLAVE_SEL_DDMA].hresp;
     always_comb responder_inst[`CALIPTRA_SLAVE_SEL_IDMA].hreadyout = responder_inst[`CALIPTRA_SLAVE_SEL_DDMA].hreadyout;
 
+`ifndef CALIPTRA_FB_AHB
     // SB and LSU AHB master mux
     ahb_lite_2to1_mux #(
         .AHB_LITE_ADDR_WIDTH (`CALIPTRA_AHB_HADDR_SIZE),
@@ -713,6 +716,37 @@ el2_veer_wrapper rvtop (
         .hreadyout_i         (initiator_inst.hreadyout),
         .hrdata_i            (initiator_inst.hrdata)
     );
+`else
+    // Mode B: FireBridge AHB master drives the internal AHB bus directly; VeeR
+    // is held in reset and bypassed. The C firmware drives the bus via
+    // fb_ahb_drive (scope TOP.caliptra_top_tb.caliptra_top_dut.u_fb_ahb).
+    fb_ahb_vip #(
+        .AHB_ADDR_WIDTH(`CALIPTRA_AHB_HADDR_SIZE),
+        .AHB_DATA_WIDTH(`CALIPTRA_AHB_HDATA_SIZE)
+    ) u_fb_ahb (
+        .clk            (clk_cg),
+        .rstn           (cptra_noncore_rst_b),
+        .firebridge_done(),
+        .hsel           (initiator_inst.hsel),
+        .haddr          (initiator_inst.haddr),
+        .hwdata         (initiator_inst.hwdata),
+        .hwrite         (initiator_inst.hwrite),
+        .hsize          (initiator_inst.hsize),
+        .htrans         (initiator_inst.htrans),
+        .hready         (initiator_inst.hready),
+        .hreadyout      (initiator_inst.hreadyout),
+        .hresp          (initiator_inst.hresp),
+        .hrdata         (initiator_inst.hrdata)
+    );
+    // VeeR (in reset) master ifaces are no longer muxed; define their response
+    // side so VeeR's idle master inputs are not X.
+    assign lsu_ahb.hready = 1'b1;
+    assign lsu_ahb.hresp  = 1'b0;
+    assign lsu_ahb.hrdata = '0;
+    assign sb_ahb.hready  = 1'b1;
+    assign sb_ahb.hresp   = 1'b0;
+    assign sb_ahb.hrdata  = '0;
+`endif
 
     // Security State value captured on a Caliptra reset deassertion
     // Security State can be unlocked by setting ss_dbg_manuf_enable or ss_soc_dbg_unlock_level[0]
