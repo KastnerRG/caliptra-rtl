@@ -229,29 +229,18 @@ FB_ROOT ?= $(abspath $(CALIPTRA_ROOT)/..)
 FB_AXI ?= 0
 ifeq ($(FB_AXI),1)
 CFLAGS += -DCALIPTRA_FB_AXI -DSIM -I$(FB_ROOT)/firebridge -I$(CALIPTRA_ROOT)/src/integration/rtl/caliptra_reg
-TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/fb_test/axi.cpp
-TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/fb_test/axi.cpp
+TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/firebridge/axi.cpp
+TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/firebridge/axi.cpp
 FB_AXI_RTL_SRCS = $(FB_ROOT)/firebridge/fb_axi_vip.sv \
                   $(FB_ROOT)/firebridge/ext/zipcpu_axi2ram.v
 endif
 
-# FireBridge AHB (Mode B): VeeR compile-excluded, fb_ahb_vip drives the internal
-# AHB bus; fb_axi_vip still drives s_axi for the boot sequence. Implies FB_AXI.
-FB_AHB ?= 0
-ifeq ($(FB_AHB),1)
-CFLAGS += -DCALIPTRA_FB_AXI -DCALIPTRA_FB_AHB -DSIM -DAHB_SIM -DFB_TEST_$(TESTNAME) -I$(FB_ROOT)/firebridge -I$(CALIPTRA_ROOT)/src/integration/rtl/caliptra_reg
-TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/fb_test/ahb_fw.cpp
-TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/fb_test/ahb_fw.cpp
-FB_AHB_RTL_SRCS = $(FB_ROOT)/firebridge/fb_axi_vip.sv \
-                  $(FB_ROOT)/firebridge/fb_ahb_vip.sv \
-                  $(FB_ROOT)/firebridge/ext/zipcpu_axi2ram.v
-endif
-
-# FireBridge HAL (Mode B, REAL firmware): same VeeR-bypass RTL as FB_AHB, but
-# instead of bespoke crypto routines it links the UNMODIFIED test firmware,
-# compiled natively as C, into the verilated executable. The firmware's
-# lsu_*/printf/SEND_STDOUT_CTRL are redirected through the FB HAL headers
-# (firebridge/fb_hal/*) into fb_harness.cpp, which drives the internal AHB bus.
+# FireBridge HAL (Mode B, REAL firmware): VeeR held in reset, fb_ahb_vip drives
+# the internal AHB bus and fb_axi_vip drives s_axi for boot. It links the
+# UNMODIFIED test firmware, compiled natively as C, into the verilated
+# executable. The firmware's lsu_*/printf/SEND_STDOUT_CTRL are redirected through
+# the FB HAL headers (firebridge/fb_hal/*) into fb_harness.cpp, which drives the
+# internal AHB bus.
 FB_HAL ?= 0
 ifeq ($(FB_HAL),1)
 CFLAGS += -DCALIPTRA_FB_AXI -DCALIPTRA_FB_AHB -DSIM -I$(FB_ROOT)/firebridge -I$(CLP_REG_DIR)
@@ -301,9 +290,6 @@ TB_DEFS =
 ifeq ($(FB_AXI),1)
 TB_DEFS += +define+CALIPTRA_FB_AXI
 endif
-ifeq ($(FB_AHB),1)
-TB_DEFS += +define+CALIPTRA_FB_AXI +define+CALIPTRA_FB_AHB
-endif
 ifeq ($(FB_HAL),1)
 TB_DEFS += +define+CALIPTRA_FB_AXI +define+CALIPTRA_FB_AHB
 endif
@@ -347,8 +333,8 @@ clean_fw:
 
 ############ Model Builds ###############################
 
-verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_AXI_RTL_SRCS) $(FB_AHB_RTL_SRCS) $(FB_HAL_RTL_SRCS) $(FB_FW_STAMP) $(TBDIR)/../config/caliptra_top_tb.vf
-	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) $(FB_AXI_RTL_SRCS) $(FB_AHB_RTL_SRCS) $(FB_HAL_RTL_SRCS) --cc -CFLAGS "$(CFLAGS)" \
+verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_AXI_RTL_SRCS) $(FB_HAL_RTL_SRCS) $(FB_FW_STAMP) $(TBDIR)/../config/caliptra_top_tb.vf
+	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) $(FB_AXI_RTL_SRCS) $(FB_HAL_RTL_SRCS) --cc -CFLAGS "$(CFLAGS)" \
 	  +libext+.v+.sv +define+RV_OPENSOURCE \
 	  --timescale 1ns/100ps \
 	  --timing \
