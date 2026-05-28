@@ -17,6 +17,7 @@
 // -- Begin Boilerplate --
 #include "caliptra_defines.h"
 #include "caliptra_isr.h"
+#include "riscv_hw_if.h"
 #include "riscv-csr.h"
 #include <string.h>
 #include <stdint.h>
@@ -62,12 +63,12 @@ int wr_regs_per_pfx(widereg_t *dv_reg, uint32_t rmask, int locked) {
         tmpreg = dv_reg->addr + j; 
 
         if (locked)
-            expdata = *tmpreg; 
+            expdata = lsu_read_32((uintptr_t) tmpreg);
 
-        wdata = (uint32_t) rand(); 
-        *tmpreg = wdata;
+        wdata = (uint32_t) rand();
+        lsu_write_32((uintptr_t) tmpreg, wdata);
 
-        rdata = *tmpreg;
+        rdata = lsu_read_32((uintptr_t) tmpreg);
         if (!locked)
             expdata = wdata & rmask; 
 
@@ -99,10 +100,10 @@ int wr_single_reg_explicit(widereg_t *dv_reg, uint32_t wdata, uint32_t expdata, 
 
     int errs = 0;
 
-    tmpreg = dv_reg->addr + j; 
+    tmpreg = dv_reg->addr + j;
 
-    *tmpreg = wdata;
-    rdata = *tmpreg;
+    lsu_write_32((uintptr_t) tmpreg, wdata);
+    rdata = lsu_read_32((uintptr_t) tmpreg);
 
     VPRINTF(LOW,"INFO. (Single Write) For addr 0x%x (%s[%d]), attempting to write 0x%08x, read back 0x%08x\n",  
         tmpreg, dv_reg->pfx, j, wdata, rdata);

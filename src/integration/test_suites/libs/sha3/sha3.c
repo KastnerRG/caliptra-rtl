@@ -554,6 +554,11 @@ void dif_kmac_end(
   // Issue done command.
   lsu_write_32(kmac + KMAC_CMD, KMAC_CMD_CMD_VALUE_DONE << KMAC_CMD_CMD_LOW);
 
+  // Poll until KMAC is idle (DONE command processed), then reflect any pending
+  // KMAC interrupts into cptra_intr_rcv for the FireBridge ISR emulation.
+  dif_kmac_poll_status(kmac, KMAC_STATUS_SHA3_IDLE_LOW);
+  asm_wfi();
+
   // Reset operation state.
   operation_state->squeezing = false;
   operation_state->append_d = false;

@@ -185,18 +185,17 @@ void main() {
     wait_for_hmac_intr();
 
     VPRINTF(LOW, "Load TAG from FW HMAC\n");
-    reg_ptr = (uint32_t *) CLP_HMAC_REG_HMAC512_TAG_0;
     offset = 0;
-    while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_TAG_11) {
-        if (tag384_zerokey_zeroblock[offset] != *reg_ptr) {
+    for (uint32_t tag_addr = CLP_HMAC_REG_HMAC512_TAG_0;
+         tag_addr <= CLP_HMAC_REG_HMAC512_TAG_11; tag_addr += 4, offset++) {
+        uint32_t tag_val = lsu_read_32(tag_addr);
+        if (tag384_zerokey_zeroblock[offset] != tag_val) {
             VPRINTF(ERROR, "At offset [%d], hmac384_tag data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", tag_val);
             VPRINTF(ERROR, "Expected data: 0x%x\n", tag384_zerokey_zeroblock[offset]);
             SEND_STDOUT_CTRL(0x1); //fail_cmd
             while(1);
         }
-        reg_ptr++;
-        offset++;
     }
 
     hmac_zeroize();

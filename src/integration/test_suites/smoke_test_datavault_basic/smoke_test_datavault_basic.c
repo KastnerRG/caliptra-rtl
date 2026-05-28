@@ -17,6 +17,7 @@
 // -- Begin Boilerplate --
 #include "caliptra_defines.h"
 #include "caliptra_isr.h"
+#include "riscv_hw_if.h"
 #include "riscv-csr.h"
 #include <string.h>
 #include <stdint.h>
@@ -61,10 +62,10 @@ int wr_regs_per_pfx(widereg_t *dv_reg, uint32_t rmask) {
     for (int j = 0; j < dv_reg->width; j++) {
         tmpreg = baseaddr + j; 
 
-        wdata = (uint32_t) rand(); 
-        *tmpreg = wdata;
+        wdata = (uint32_t) rand();
+        lsu_write_32((uintptr_t) tmpreg, wdata);
 
-        rdata = *tmpreg;
+        rdata = lsu_read_32((uintptr_t) tmpreg);
         expdata = wdata & rmask; 
 
         if (j == 0) {
