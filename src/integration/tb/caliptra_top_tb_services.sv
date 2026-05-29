@@ -2437,7 +2437,9 @@ endgenerate //IV_NO
             end
             else begin
                 $display("* TESTCASE PASSED");
+`ifndef CALIPTRA_FB_AHB
                 $display("\nFinished : minstret = %0d, mcycle = %0d", `DEC.tlu.minstretl[31:0],`DEC.tlu.mcyclel[31:0]);
+`endif
                 $display("See \"exec.log\" for execution trace with register updates..\n");
                 dump_memory_contents(MEMTYPE_LMEM, MBOX_DIR_START_ADDR, MBOX_DIR_END_ADDR);
                 dump_memory_contents(MEMTYPE_DCCM, `RV_DCCM_SADR, `RV_DCCM_EADR);
@@ -2463,6 +2465,7 @@ endgenerate //IV_NO
     end
 
 
+`ifndef CALIPTRA_FB_AHB
     // trace monitor
     always @(posedge clk) begin
         wb_valid  <= `DEC.dec_i0_wen_r;
@@ -2491,6 +2494,7 @@ endgenerate //IV_NO
             caliptra_top_tb_services.gpr[0][`DEC.div_waddr_wb] = `DEC.exu_div_result;
         end
     end
+`endif  // CALIPTRA_FB_AHB
 
     // IFU Initiator monitor
     always @(posedge clk) begin

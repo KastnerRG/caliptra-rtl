@@ -589,21 +589,21 @@ void main() {
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_MSG_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_MSG_15) {
-        *reg_ptr++ = msg[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), msg[offset++]);
     }
 
     // Program MLDSA PUBKEY
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_PUBKEY_BASE_ADDR;
     offset = 0;
     while (offset < MLDSA87_PUBKEY_SIZE) {
-        *reg_ptr++ = pubkey[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), pubkey[offset++]);
     }
 
     // Program MLDSA SIGNATURE
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_SIGNATURE_BASE_ADDR;
     offset = 0;
     while (offset < MLDSA87_SIGN_SIZE) {
-        *reg_ptr++ = sign[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), sign[offset++]);
     }
 
     // Enable MLDSA VERIFYING core
@@ -619,7 +619,7 @@ void main() {
     offset = 0;
     uint16_t mismatch = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_VERIFY_RES_15) {
-        if (*reg_ptr != verify_res[offset]) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != verify_res[offset]) {
             // VPRINTF(LOW, "Actual   data: 0x%x\n", *reg_ptr);
             // VPRINTF(LOW, "Expected data: 0x%x\n", verify_res[offset]);
             mismatch++;

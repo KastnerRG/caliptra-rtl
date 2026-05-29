@@ -151,6 +151,9 @@ VPATH = $(TEST_DIR) $(BUILD_DIR) $(TBDIR) $(RISCV_HW_IF_DIR) $(ISR_DIR) $(PRINTF
 # Use eval to expand env variables in the .vf file
 $(eval TBFILES = $(shell cat $(TBDIR)/../config/caliptra_top_tb.vf | grep -v '+incdir+'))
 
+# Default VF; overridden to a VeeR-stripped version for FB builds (see ifeq FB_HAL below)
+VERILATOR_VF = $(TBDIR)/../config/caliptra_top_tb.vf
+
 #defines  = $(BUILD_DIR)/common_defines.vh
 #defines += $(RV_ROOT)/design/include/el2_def.sv
 #defines += $(BUILD_DIR)/el2_pdef.vh
@@ -248,7 +251,26 @@ TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/firebridge/fb_harness.cpp
 TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/firebridge/fb_harness.cpp
 FB_HAL_RTL_SRCS = $(FB_ROOT)/firebridge/fb_axi_vip.sv \
                   $(FB_ROOT)/firebridge/fb_ahb_vip.sv \
-                  $(FB_ROOT)/firebridge/ext/zipcpu_axi2ram.v
+                  $(FB_ROOT)/firebridge/ext/zipcpu_axi2ram.v \
+                  $(FB_ROOT)/firebridge/el2_veer_wrapper_stub.sv
+# Strip the heavy VeeR RTL implementation files from the VF; keep only the
+# small definitions that non-VeeR code still needs (el2_pkg, el2_mem_if,
+# common_defines) plus the +incdir+ entries.  VeeR is ifdef'd out under
+# CALIPTRA_FB_AHB so Verilator never elaborates it — this just avoids parsing
+# ~50 large RTL files, cutting compile time by ~40-50%.
+FB_VF = $(BUILD_DIR)/caliptra_top_tb_noveer.vf
+VERILATOR_VF = $(FB_VF)
+
+$(FB_VF): $(TBDIR)/../config/caliptra_top_tb.vf
+	awk '/veer_el2\/rtl\// && \
+	     !/el2_pdef\.vh/ && \
+	     !/el2_def\.sv/ && \
+	     !/common_defines\.sv/ && \
+	     !/el2_mem_if\.sv/ && \
+	     !/mem_lib\.sv/ && \
+	     !/beh_lib\.sv/ && \
+	     !/\+incdir\+/ \
+	     {next} {print}' $< > $@
 # Firmware sources compiled natively (as C) and linked into the executable.
 # FB_FW_LIB_SRCS / FB_FW_LIB_DIRS let each test pull in the crypto lib(s) it uses.
 FB_FW_CC ?= gcc
@@ -336,14 +358,14 @@ clean_fw:
 
 ############ Model Builds ###############################
 
-verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_AXI_RTL_SRCS) $(FB_HAL_RTL_SRCS) $(FB_FW_STAMP) $(TBDIR)/../config/caliptra_top_tb.vf
+verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_AXI_RTL_SRCS) $(FB_HAL_RTL_SRCS) $(FB_FW_STAMP) $(VERILATOR_VF)
 	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) $(FB_AXI_RTL_SRCS) $(FB_HAL_RTL_SRCS) --cc -CFLAGS "$(CFLAGS)" \
 	  +libext+.v+.sv +define+RV_OPENSOURCE \
 	  --timescale 1ns/100ps \
 	  --timing \
 	  $(includes) \
 	  $(suppress) \
-	  -f $(TBDIR)/../config/caliptra_top_tb.vf --top-module caliptra_top_tb \
+	  -f $(VERILATOR_VF) --top-module caliptra_top_tb \
 	  -f $(TBDIR)/../config/caliptra_top_tb.vlt \
 	  -exe $(TB_VERILATOR_EXE_SRCS) --autoflush $(VERILATOR_DEBUG) \
 	  $(FB_HAL_LDFLAGS) \

@@ -162,7 +162,7 @@ void main(){
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-        *reg_ptr++ = ecc_iv[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
     }
 
     // Enable ECC PCR SIGNING core
@@ -179,9 +179,9 @@ void main(){
     reg_ptr = (uint32_t *) CLP_ECC_REG_ECC_SIGN_R_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_R_11) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], ecc_sign_r data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
         }
@@ -193,9 +193,9 @@ void main(){
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_11) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], ecc_sign_s data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
         } 
@@ -219,7 +219,7 @@ void main(){
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-        *reg_ptr++ = ecc_iv[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
     }
 
     // Enable ECC PCR SIGNING core
@@ -240,9 +240,9 @@ void main(){
     reg_ptr = (uint32_t *) CLP_ECC_REG_ECC_SIGN_R_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_R_11) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], ecc_sign_r data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
         }
@@ -270,13 +270,13 @@ void main(){
     while((lsu_read_32(CLP_ABR_REG_MLDSA_STATUS) & ABR_REG_MLDSA_STATUS_READY_MASK) == 0);
 
     VPRINTF(LOW, "Try to Load SIGN data from MLDSA\n");
-    while (*status_ptr == 0){
+    while (lsu_read_32((uintptr_t)(status_ptr)) == 0){
         reg_ptr = (uint32_t *) CLP_ABR_REG_MLDSA_SIGNATURE_BASE_ADDR;
         offset = 0;
         while (offset < MLDSA87_SIGN_SIZE) {
-            if ((*reg_ptr != 0) & (*status_ptr == 0)) {
+            if ((lsu_read_32((uintptr_t)(reg_ptr)) != 0) & (lsu_read_32((uintptr_t)(status_ptr)) == 0)) {
                 VPRINTF(ERROR, "At offset [%d], mldsa_sign data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
@@ -307,13 +307,13 @@ void main(){
     while((lsu_read_32(CLP_ABR_REG_MLDSA_STATUS) & ABR_REG_MLDSA_STATUS_READY_MASK) == 0);
 
     VPRINTF(LOW, "Try to Load SIGN data from MLDSA\n");
-    while (*status_ptr == 0){
+    while (lsu_read_32((uintptr_t)(status_ptr)) == 0){
         reg_ptr = (uint32_t *) CLP_ABR_REG_MLDSA_SIGNATURE_BASE_ADDR;
         offset = 0;
         while (offset < MLDSA87_SIGN_SIZE) {
-            if ((*reg_ptr != 0) & (*status_ptr == 0)) {
+            if ((lsu_read_32((uintptr_t)(reg_ptr)) != 0) & (lsu_read_32((uintptr_t)(status_ptr)) == 0)) {
                 VPRINTF(ERROR, "At offset [%d], mldsa_sign data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);

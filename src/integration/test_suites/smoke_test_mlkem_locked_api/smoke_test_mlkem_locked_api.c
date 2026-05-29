@@ -132,9 +132,9 @@ void main() {
                                                         ((seed.kv_id << ABR_REG_KV_MLKEM_SEED_RD_CTRL_READ_ENTRY_LOW) & ABR_REG_KV_MLKEM_SEED_RD_CTRL_READ_ENTRY_MASK)));
     
     while (offset < MLKEM_SEED_SIZE) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], mlkem seed data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
@@ -155,9 +155,9 @@ void main() {
                                                         ((seed.kv_id << ABR_REG_KV_MLKEM_SEED_RD_CTRL_READ_ENTRY_LOW) & ABR_REG_KV_MLKEM_SEED_RD_CTRL_READ_ENTRY_MASK)));
         
     while (offset < MLKEM_SEED_SIZE) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], mlkem seed data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
@@ -178,9 +178,9 @@ void main() {
                                                     ((msg.kv_id << ABR_REG_KV_MLKEM_MSG_RD_CTRL_READ_ENTRY_LOW) & ABR_REG_KV_MLKEM_MSG_RD_CTRL_READ_ENTRY_MASK)));
     
     while (offset < MLKEM_MSG_SIZE) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], mlkem msg data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
@@ -225,13 +225,13 @@ void main() {
 
 
     VPRINTF(LOW, "Try to Load Locked ek data from MLKEM\n");
-    while (*status_ptr == 0){
+    while (lsu_read_32((uintptr_t)(status_ptr)) == 0){
         reg_ptr = (uint32_t *) CLP_ABR_REG_MLKEM_ENCAPS_KEY_BASE_ADDR;
         offset = 0;
         while (offset < MLKEM_EK_SIZE) {
-            if ((*reg_ptr != 0) & (*status_ptr == 0)) {
+            if ((lsu_read_32((uintptr_t)(reg_ptr)) != 0) & (lsu_read_32((uintptr_t)(status_ptr)) == 0)) {
                 VPRINTF(ERROR, "At offset [%d], mlkem_ek data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
@@ -249,9 +249,9 @@ void main() {
     reg_ptr = (uint32_t *) CLP_ABR_REG_MLKEM_SEED_D_0;
     offset = 0;
     while (offset < MLKEM_SEED_SIZE) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], mlkem seed data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
@@ -265,9 +265,9 @@ void main() {
     reg_ptr = (uint32_t *) CLP_ABR_REG_MLKEM_DECAPS_KEY_BASE_ADDR;
     offset = 0;
     while (offset < MLKEM_DK_SIZE) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], mlkem decaps key mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
@@ -284,10 +284,10 @@ void main() {
     reg_ptr = (uint32_t *) CLP_ABR_REG_MLKEM_CIPHERTEXT_BASE_ADDR;
     offset = 0;
     while (offset < MLKEM_CIPHERTEXT_SIZE) {
-        *reg_ptr = 0xFF;
-        if ((*status_ptr == 0) && (*reg_ptr != 0)) {
+        lsu_write_32((uintptr_t)(reg_ptr), 0xFF);
+        if ((lsu_read_32((uintptr_t)(status_ptr)) == 0) && (lsu_read_32((uintptr_t)(reg_ptr)) != 0)) {
             VPRINTF(ERROR, "At offset [%d], mlkem_ciphertext mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);

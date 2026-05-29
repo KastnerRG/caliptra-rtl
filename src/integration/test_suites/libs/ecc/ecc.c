@@ -25,6 +25,9 @@ extern volatile caliptra_intr_received_s cptra_intr_rcv;
 
 void wait_for_ecc_intr(){
     VPRINTF(LOW, "ECC flow in progress...\n");
+    // Clear any stale interrupt bits from boot or previous operations (FB_HAL compat)
+    cptra_intr_rcv.ecc_notif = 0;
+    cptra_intr_rcv.ecc_error = 0;
     while((cptra_intr_rcv.ecc_error == 0) & (cptra_intr_rcv.ecc_notif == 0)){
         asm_wfi(); // "Wait for interrupt"
         // Sleep during ECC operation to allow ISR to execute and show idle time in sims
@@ -62,7 +65,7 @@ void ecc_keygen_flow(ecc_io seed, ecc_io nonce, ecc_io iv, ecc_io privkey, ecc_i
         // Try to overwrite ECC SEED from keyvault
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SEED_0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SEED_11) {
-            *reg_ptr++ = 0;
+            lsu_write_32((uintptr_t)(reg_ptr++), 0);
         }
 
         // Check that ECC SEED is loaded (poll for valid or error)
@@ -78,7 +81,7 @@ void ecc_keygen_flow(ecc_io seed, ecc_io nonce, ecc_io iv, ecc_io privkey, ecc_i
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SEED_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SEED_11) {
-            *reg_ptr++ = seed.data[offset++];
+            lsu_write_32((uintptr_t)(reg_ptr++), seed.data[offset++]);
         }
     }
 
@@ -93,14 +96,14 @@ void ecc_keygen_flow(ecc_io seed, ecc_io nonce, ecc_io iv, ecc_io privkey, ecc_i
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_NONCE_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_NONCE_11) {
-        *reg_ptr++ = nonce.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), nonce.data[offset++]);
     }
 
     // Write ECC IV
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-        *reg_ptr++ = iv.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), iv.data[offset++]);
     }
 
     VPRINTF(LOW, "\nECC KEYGEN\n");
@@ -114,7 +117,7 @@ void ecc_keygen_flow(ecc_io seed, ecc_io nonce, ecc_io iv, ecc_io privkey, ecc_i
     // Try to overwrite ECC SEED
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SEED_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SEED_11) {
-        *reg_ptr++ = 0;
+        lsu_write_32((uintptr_t)(reg_ptr++), 0);
     }
 
     // Skip wait and result checking if KV read error was detected
@@ -142,7 +145,7 @@ void ecc_keygen_flow(ecc_io seed, ecc_io nonce, ecc_io iv, ecc_io privkey, ecc_i
         reg_ptr = (uint32_t *) CLP_ECC_REG_ECC_PRIVKEY_OUT_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_OUT_11) {
-            ecc_privkey[offset] = *reg_ptr;
+            ecc_privkey[offset] = lsu_read_32((uintptr_t)(reg_ptr));
             if (ecc_privkey[offset] != privkey.data[offset]) {
                 VPRINTF(ERROR, "At offset [%d], ecc_privkey data mismatch!\n", offset);
                 VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_privkey[offset]);
@@ -161,7 +164,7 @@ void ecc_keygen_flow(ecc_io seed, ecc_io nonce, ecc_io iv, ecc_io privkey, ecc_i
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_11) {
-            ecc_pubkey_x[offset] = *reg_ptr;
+            ecc_pubkey_x[offset] = lsu_read_32((uintptr_t)(reg_ptr));
             if (ecc_pubkey_x[offset] != pubkey_x.data[offset]) {
                 VPRINTF(ERROR, "At offset [%d], ecc_pubkey_x data mismatch!\n", offset);
                 VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_pubkey_x[offset]);
@@ -177,7 +180,7 @@ void ecc_keygen_flow(ecc_io seed, ecc_io nonce, ecc_io iv, ecc_io privkey, ecc_i
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_11) {
-            ecc_pubkey_y[offset] = *reg_ptr;
+            ecc_pubkey_y[offset] = lsu_read_32((uintptr_t)(reg_ptr));
             if (ecc_pubkey_y[offset] != pubkey_y.data[offset]) {
                 VPRINTF(ERROR, "At offset [%d], ecc_pubkey_y data mismatch!\n", offset);
                 VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_pubkey_y[offset]);
@@ -224,7 +227,7 @@ void ecc_sharedkey_flow(ecc_io iv, ecc_io privkey, ecc_io pubkey_x, ecc_io pubke
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_11) {
-            *reg_ptr++ = privkey.data[offset++];
+            lsu_write_32((uintptr_t)(reg_ptr++), privkey.data[offset++]);
         }
     }
     
@@ -233,7 +236,7 @@ void ecc_sharedkey_flow(ecc_io iv, ecc_io privkey, ecc_io pubkey_x, ecc_io pubke
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_11) {
-        *reg_ptr++ = pubkey_x.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), pubkey_x.data[offset++]);
     }
 
     // Write PUBKEY_Y
@@ -241,14 +244,14 @@ void ecc_sharedkey_flow(ecc_io iv, ecc_io privkey, ecc_io pubkey_x, ecc_io pubke
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_11) {
-        *reg_ptr++ = pubkey_y.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), pubkey_y.data[offset++]);
     }
 
     // Write ECC IV
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-        *reg_ptr++ = iv.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), iv.data[offset++]);
     }
 
     if (sharedkey.kv_intf){
@@ -272,7 +275,7 @@ void ecc_sharedkey_flow(ecc_io iv, ecc_io privkey, ecc_io pubkey_x, ecc_io pubke
     // Try to overwrite ECC PRIVKEY
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_11) {
-        *reg_ptr++ = 0;
+        lsu_write_32((uintptr_t)(reg_ptr++), 0);
     }
 
     // Verify engine did not start after KV read error
@@ -299,7 +302,7 @@ void ecc_sharedkey_flow(ecc_io iv, ecc_io privkey, ecc_io pubkey_x, ecc_io pubke
         reg_ptr = (uint32_t *) CLP_ECC_REG_ECC_DH_SHARED_KEY_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_DH_SHARED_KEY_11) {
-            ecc_sharedkey[offset] = *reg_ptr;
+            ecc_sharedkey[offset] = lsu_read_32((uintptr_t)(reg_ptr));
             if (ecc_sharedkey[offset] != sharedkey.data[offset]) {
                 VPRINTF(ERROR, "At offset [%d], ecc_sharedkey data mismatch!\n", offset);
                 VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_sharedkey[offset]);
@@ -338,7 +341,7 @@ void ecc_signing_flow(ecc_io privkey, ecc_io msg, ecc_io iv, ecc_io sign_r, ecc_
         // Try to overwrite ECC PRIVKEY from key vault
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_11) {
-            *reg_ptr++ = 0;
+            lsu_write_32((uintptr_t)(reg_ptr++), 0);
         }
 
         // Check that ECC PRIVKEY is loaded (poll for valid or error)
@@ -355,7 +358,7 @@ void ecc_signing_flow(ecc_io privkey, ecc_io msg, ecc_io iv, ecc_io sign_r, ecc_
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_11) {
-            *reg_ptr++ = privkey.data[offset++];
+            lsu_write_32((uintptr_t)(reg_ptr++), privkey.data[offset++]);
         }
     }
     
@@ -364,14 +367,14 @@ void ecc_signing_flow(ecc_io privkey, ecc_io msg, ecc_io iv, ecc_io sign_r, ecc_
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_MSG_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_MSG_11) {
-        *reg_ptr++ = msg.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), msg.data[offset++]);
     }
 
     // Program ECC IV
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-        *reg_ptr++ = iv.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), iv.data[offset++]);
     }
 
     // Enable ECC SIGNING core
@@ -385,7 +388,7 @@ void ecc_signing_flow(ecc_io privkey, ecc_io msg, ecc_io iv, ecc_io sign_r, ecc_
     // Try to overwrite ECC PRIVKEY
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_11) {
-        *reg_ptr++ = 0;
+        lsu_write_32((uintptr_t)(reg_ptr++), 0);
     }
 
     // Verify engine did not start after KV read error
@@ -407,7 +410,7 @@ void ecc_signing_flow(ecc_io privkey, ecc_io msg, ecc_io iv, ecc_io sign_r, ecc_
         reg_ptr = (uint32_t *) CLP_ECC_REG_ECC_SIGN_R_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_R_11) {
-            ecc_sign_r[offset] = *reg_ptr;
+            ecc_sign_r[offset] = lsu_read_32((uintptr_t)(reg_ptr));
             if (ecc_sign_r[offset] != sign_r.data[offset]) {
                 VPRINTF(ERROR, "At offset [%d], ecc_sign_r data mismatch!\n", offset);
                 VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_sign_r[offset]);
@@ -423,7 +426,7 @@ void ecc_signing_flow(ecc_io privkey, ecc_io msg, ecc_io iv, ecc_io sign_r, ecc_
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_11) {
-            ecc_sign_s[offset] = *reg_ptr;
+            ecc_sign_s[offset] = lsu_read_32((uintptr_t)(reg_ptr));
             if (ecc_sign_s[offset] != sign_s.data[offset]) {
                 VPRINTF(ERROR, "At offset [%d], ecc_sign_s data mismatch!\n", offset);
                 VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_sign_s[offset]);
@@ -452,35 +455,35 @@ void ecc_verifying_flow(ecc_io msg, ecc_io pubkey_x, ecc_io pubkey_y, ecc_io sig
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_MSG_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_MSG_11) {
-        *reg_ptr++ = msg.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), msg.data[offset++]);
     }
 
     // Program ECC PUBKEY_X
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_11) {
-        *reg_ptr++ = pubkey_x.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), pubkey_x.data[offset++]);
     }
 
     // Program ECC PUBKEY_Y
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_11) {
-        *reg_ptr++ = pubkey_y.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), pubkey_y.data[offset++]);
     }
 
     // Program ECC SIGN_R
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SIGN_R_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_R_11) {
-        *reg_ptr++ = sign_r.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), sign_r.data[offset++]);
     }
 
     // Program ECC SIGN_S
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_11) {
-        *reg_ptr++ = sign_s.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), sign_s.data[offset++]);
     }
 
     // Enable ECC VERIFYING core
@@ -495,7 +498,7 @@ void ecc_verifying_flow(ecc_io msg, ecc_io pubkey_x, ecc_io pubkey_y, ecc_io sig
     VPRINTF(LOW, "Load VERIFY_R data from ECC\n");
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_VERIFY_R_11) {
-        ecc_verify_r[offset] = *reg_ptr;
+        ecc_verify_r[offset] = lsu_read_32((uintptr_t)(reg_ptr));
         if (ecc_verify_r[offset] != sign_r.data[offset]) {
             VPRINTF(ERROR, "At offset [%d], ecc_verify_r data mismatch!\n", offset);
             VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_verify_r[offset]);
@@ -524,7 +527,7 @@ void ecc_pcr_signing_flow(ecc_io iv, ecc_io sign_r, ecc_io sign_s){
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-        *reg_ptr++ = iv.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), iv.data[offset++]);
     }
 
     // Enable ECC PCR SIGNING core
@@ -540,7 +543,7 @@ void ecc_pcr_signing_flow(ecc_io iv, ecc_io sign_r, ecc_io sign_s){
     // Try to overwrite ECC PRIVKEY
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PRIVKEY_IN_11) {
-        *reg_ptr++ = 0;
+        lsu_write_32((uintptr_t)(reg_ptr++), 0);
     }
 
     // wait for ECC SIGNING process to be done
@@ -551,7 +554,7 @@ void ecc_pcr_signing_flow(ecc_io iv, ecc_io sign_r, ecc_io sign_s){
     reg_ptr = (uint32_t *) CLP_ECC_REG_ECC_SIGN_R_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_R_11) {
-        ecc_sign_r[offset] = *reg_ptr;
+        ecc_sign_r[offset] = lsu_read_32((uintptr_t)(reg_ptr));
         if (ecc_sign_r[offset] != sign_r.data[offset]) {
             VPRINTF(ERROR, "At offset [%d], ecc_sign_r data mismatch!\n", offset);
             VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_sign_r[offset]);
@@ -567,7 +570,7 @@ void ecc_pcr_signing_flow(ecc_io iv, ecc_io sign_r, ecc_io sign_s){
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_11) {
-        ecc_sign_s[offset] = *reg_ptr;
+        ecc_sign_s[offset] = lsu_read_32((uintptr_t)(reg_ptr));
         if (ecc_sign_s[offset] != sign_s.data[offset]) {
             VPRINTF(ERROR, "At offset [%d], ecc_sign_s data mismatch!\n", offset);
             VPRINTF(ERROR, "Actual   data: 0x%x\n", ecc_sign_s[offset]);

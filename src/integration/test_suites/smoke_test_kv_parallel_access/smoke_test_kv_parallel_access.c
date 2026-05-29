@@ -227,7 +227,7 @@ void main(){
     reg_ptr = (uint32_t*) CLP_DOE_REG_DOE_IV_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_DOE_REG_DOE_IV_3) {
-        *reg_ptr++ = iv_data_uds[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), iv_data_uds[offset++]);
     }
 
     VPRINTF(LOW,"ECC Preparation **************\n");
