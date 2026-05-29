@@ -112,21 +112,21 @@ void main() {
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_MSG_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_MSG_15) {
-        *reg_ptr++ = msg[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), msg[offset++]);
     }
 
     // Program MLDSA Sign Rnd
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_SIGN_RND_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_SIGN_RND_7) {
-        *reg_ptr++ = sign_rnd[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), sign_rnd[offset++]);
     }
 
     // Write MLDSA ENTROPY
     reg_ptr = (uint32_t*) CLP_ABR_REG_ABR_ENTROPY_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_ABR_ENTROPY_15) {
-        *reg_ptr++ = entropy[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), entropy[offset++]);
     }
 
     status_ptr = (uint32_t *) CLP_ABR_REG_MLDSA_STATUS;
@@ -135,13 +135,13 @@ void main() {
     lsu_write_32(CLP_ABR_REG_MLDSA_CTRL, MLDSA_CMD_KEYGEN_SIGN);
 
     VPRINTF(LOW, "Try to Load Locked SIGN data from MLDSA\n");
-    while (*status_ptr == 0){
+    while (lsu_read_32((uintptr_t)(status_ptr)) == 0){
         reg_ptr = (uint32_t *) CLP_ABR_REG_MLDSA_SIGNATURE_BASE_ADDR;
         offset = 0;
         while (offset < MLDSA87_SIGN_SIZE) {
-            if ((*reg_ptr != 0) & (*status_ptr == 0)) {
+            if ((lsu_read_32((uintptr_t)(reg_ptr)) != 0) & (lsu_read_32((uintptr_t)(status_ptr)) == 0)) {
                 VPRINTF(ERROR, "At offset [%d], mldsa_sign data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
@@ -159,9 +159,9 @@ void main() {
     reg_ptr = (uint32_t *) CLP_ABR_REG_MLDSA_PRIVKEY_OUT_BASE_ADDR;
     offset = 0;
     while (offset < MLDSA87_PRIVKEY_SIZE) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], mldsa_privkey data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
@@ -178,9 +178,9 @@ void main() {
     reg_ptr = (uint32_t *) CLP_ABR_REG_MLDSA_PRIVKEY_OUT_BASE_ADDR;
     offset = 0;
     while (offset < MLDSA87_PRIVKEY_SIZE) {
-        if (*reg_ptr != 0) {
+        if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
             VPRINTF(ERROR, "At offset [%d], mldsa_privkey data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
