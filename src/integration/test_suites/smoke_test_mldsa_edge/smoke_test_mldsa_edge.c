@@ -518,21 +518,21 @@ void main() {
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_SEED_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_SEED_7) {
-        *reg_ptr++ = seed.data[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), seed.data[offset++]);
     }
 
     // Program MLDSA MSG
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_MSG_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_MSG_15) {
-        *reg_ptr++ = msg[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), msg[offset++]);
     }
 
     // Program MLDSA Sign Rnd
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_SIGN_RND_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_SIGN_RND_7) {
-        *reg_ptr++ = sign_rnd[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), sign_rnd[offset++]);
     }
 
     // Write MLDSA ENTROPY
@@ -540,7 +540,7 @@ void main() {
     reg_ptr = (uint32_t*) CLP_ABR_REG_ABR_ENTROPY_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_ABR_ENTROPY_15) {
-        *reg_ptr++ = entropy[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), entropy[offset++]);
     }
 
     // Enable MLDSA KEYGEN + SIGNING core
@@ -558,9 +558,9 @@ void main() {
     reg_ptr = (uint32_t *) CLP_ABR_REG_MLDSA_SIGNATURE_BASE_ADDR;
     offset = 0;
     while (offset < MLDSA87_SIGN_SIZE) {
-        if (sign[offset] != *reg_ptr) {
+        if (sign[offset] != lsu_read_32((uintptr_t)(reg_ptr))) {
             VPRINTF(ERROR, "At offset [%d], mldsa_sign data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", sign[offset]);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
@@ -583,21 +583,21 @@ void main() {
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_MSG_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_MSG_15) {
-        *reg_ptr++ = msg[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), msg[offset++]);
     }
 
     // Program MLDSA PUBKEY
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_PUBKEY_BASE_ADDR;
     offset = 0;
     while (offset < MLDSA87_PUBKEY_SIZE) {
-        *reg_ptr++ = pubkey[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), pubkey[offset++]);
     }
 
     // Program MLDSA SIGNATURE
     reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_SIGNATURE_BASE_ADDR;
     offset = 0;
     while (offset < MLDSA87_SIGN_SIZE) {
-        *reg_ptr++ = sign[offset++];
+        lsu_write_32((uintptr_t)(reg_ptr++), sign[offset++]);
     }
 
     // Enable MLDSA VERIFYING core
@@ -615,9 +615,9 @@ void main() {
     VPRINTF(LOW, "Load VERIFY_RES data from MLDSA\n");
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_VERIFY_RES_15) {
-        if (verify_res[offset] != *reg_ptr) {
+        if (verify_res[offset] != lsu_read_32((uintptr_t)(reg_ptr))) {
             VPRINTF(ERROR, "At offset [%d], mldsa_verify_res data mismatch!\n", offset);
-            VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+            VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
             VPRINTF(ERROR, "Expected data: 0x%x\n", verify_res[offset]);
             SEND_STDOUT_CTRL(fail_cmd);
             while(1);
