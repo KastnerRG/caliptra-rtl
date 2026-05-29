@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "printf.h"
+#include "riscv_hw_if.h"
 #include "datavault.h"
 
 volatile uint32_t* stdout           = (uint32_t *)STDOUT;
@@ -86,7 +87,7 @@ void write_dv_regs() {
 
         for (int j = 0; j < dvregs_ptr->width; j++) {
             tmpreg = dvregs_ptr->addr + j; 
-            *tmpreg = wdata_values[i][j];
+            lsu_write_32((uintptr_t)(tmpreg), wdata_values[i][j]);
 
             if (j == 0) {
                 VPRINTF(LOW,"\nINFO. For addr 0x%x (%s), attempting to write 0x%08x, expected survived value 0x%08x", 
@@ -106,7 +107,7 @@ void write_dv_regs() {
 
         for (int j = 0; j < dvregs_ptr->width; j++) {
             tmpreg = dvregs_ptr->addr + j; 
-            *tmpreg = wdata_values[i][j];
+            lsu_write_32((uintptr_t)(tmpreg), wdata_values[i][j]);
 
             if (j == 0) {
                 VPRINTF(LOW,"\nINFO. For addr 0x%x (%s), attempting to write 0x%08x, expected survived value 0x%08x", 
@@ -131,18 +132,18 @@ int check_reset_values(int rst_type) {
             tmpreg = dvregs_ptr->addr + j; 
 
             if (rst_type == DV_COLD_RESET) { // All reset values are 0x0
-                if(*tmpreg != 0) { 
+                if(lsu_read_32((uintptr_t)(tmpreg)) != 0) { 
                     err_count++; 
                     VPRINTF(ERROR,"\nERROR. incorrect power-on value for addr 0x%x (%s)= 0x%08x (expected 0x0)\n", 
-                        tmpreg, dvregs_ptr->pfx, *tmpreg); 
+                        tmpreg, dvregs_ptr->pfx, lsu_read_32((uintptr_t)(tmpreg))); 
                 } else {
                     VPRINTF(LOW,".");
                 }
             } else if (rst_type == DV_WARM_RESET) {
-                if (*tmpreg != survived_values[i][j]) { 
+                if (lsu_read_32((uintptr_t)(tmpreg)) != survived_values[i][j]) { 
                     err_count++; 
                     VPRINTF(ERROR,"\nERROR. incorrect warm-reset value for addr 0x%x (%s)= 0x%08x (expected 0x%08x)\n", 
-                        tmpreg, dvregs_ptr->pfx, *tmpreg, survived_values[i][j]);
+                        tmpreg, dvregs_ptr->pfx, lsu_read_32((uintptr_t)(tmpreg)), survived_values[i][j]);
                 } else {
                     VPRINTF(LOW,".");
                 }

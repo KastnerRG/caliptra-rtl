@@ -208,7 +208,7 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-            *reg_ptr++ = ecc_iv[offset++];
+            lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
         }
 
         //Inject invalid privkey
@@ -241,7 +241,7 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-            *reg_ptr++ = ecc_iv[offset++];
+            lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
         }
 
         //Inject invalid pubkey_x
@@ -274,7 +274,7 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-            *reg_ptr++ = ecc_iv[offset++];
+            lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
         }
 
         //Inject invalid pubkey_x

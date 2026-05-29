@@ -291,6 +291,7 @@ FB_ALL_LIB_DIRS := $(wildcard $(CALIPTRA_ROOT)/src/integration/test_suites/libs/
 FB_FW_INCS = -I$(FB_ROOT)/firebridge/fb_hal -I$(INCLUDES_DIR) -I$(CLP_REG_DIR) \
              -I$(TEST_DIR) $(foreach d,$(FB_FW_LIB_DIRS),-I$(d)) \
              $(foreach d,$(FB_ALL_LIB_DIRS),-I$(d))
+FB_FW_CFLAGS ?=          # extra C flags for firmware compilation (e.g. -DCALIPTRA_INTERNAL_TRNG)
 FB_FW_STAMP = $(BUILD_DIR)/.fbfw_built
 FB_HAL_LDFLAGS = -LDFLAGS "$(FB_FW_OBJS)"
 
@@ -299,7 +300,7 @@ $(FB_FW_STAMP): $(FB_FW_SRCS) $(FB_ROOT)/firebridge/fb_hal/riscv_hw_if.h \
 	@set -e; for s in $(FB_FW_UPSTREAM_SRCS); do \
 	  o=$(BUILD_DIR)/fbfw_$$(basename $${s%.c}).o; \
 	  echo "[FB_HAL] cc (upstream) $$s -> $$o"; \
-	  $(FB_FW_CC) -std=gnu11 -g -O2 -c -DFIREBRIDGE $(FB_FW_RENAMES) $(FB_FW_INCS) $$s -o $$o; \
+	  $(FB_FW_CC) -std=gnu11 -g -O2 -c -DFIREBRIDGE $(FB_FW_RENAMES) $(FB_FW_INCS) $(FB_FW_CFLAGS) $$s -o $$o; \
 	done; \
 	SHA3_DEFINE=$$(echo "$(FB_FW_LIB_SRCS)" | grep -q sha3 && echo "-DFIREBRIDGE_HAS_SHA3" || true); \
 	for s in $(FB_FW_FB_SRCS); do \

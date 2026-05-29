@@ -142,7 +142,7 @@ void main() {
         reg_ptr = (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_11) {
-            read_data = *reg_ptr++;
+            read_data = lsu_read_32((uintptr_t)(reg_ptr++));
             if (exp3[offset] != read_data) {
                 VPRINTF(FATAL,"SHA Result Mismatch - EXP: 0x%x RECVD: 0x%x\n", exp3[offset], read_data);
                 SEND_STDOUT_CTRL( 0x01);

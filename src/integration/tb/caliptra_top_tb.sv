@@ -510,8 +510,23 @@ initial begin
     repeat (5) @(posedge core_clk);
     cptra_rst_b = 1'b1;
 end
+
+// Drive cptra_pwrgood/cptra_rst_b in response to warm/cold reset flags from TB services
+// (soc_bfm handles this in the non-FB path, so FB needs its own handler)
+always @(posedge core_clk) begin
+    if (assert_hard_rst_flag) begin
+        cptra_pwrgood <= 1'b0;
+        cptra_rst_b   <= 1'b0;
+    end else if (deassert_hard_rst_flag) begin
+        cptra_pwrgood <= 1'b1;
+    end else if (assert_rst_flag_from_service) begin
+        cptra_rst_b <= 1'b0;
+    end else if (deassert_rst_flag_from_service) begin
+        cptra_rst_b <= 1'b1;
+    end
+end
 `endif
-    
+
 // JTAG DPI
 jtagdpi #(
     .Name           ("jtag0"),
