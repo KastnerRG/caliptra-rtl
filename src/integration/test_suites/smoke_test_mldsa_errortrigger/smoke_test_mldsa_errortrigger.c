@@ -552,7 +552,9 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ABR_REG_MLDSA_PRIVKEY_IN_BASE_ADDR;
         offset = 0;
         while (offset < MLDSA87_PRIVKEY_SIZE) {
-            *reg_ptr++ = privkey[offset++];
+            lsu_write_32((uintptr_t)reg_ptr, privkey[offset]);
+            reg_ptr++;
+            offset++;
         }
 
         // Enable MLDSA SIGNING core
@@ -673,9 +675,9 @@ void main() {
         VPRINTF(LOW, "Load VERIFY_RES data from MLDSA\n");
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ABR_REG_MLDSA_VERIFY_RES_15) {
-            if (*reg_ptr != 0) {
+            if (lsu_read_32((uintptr_t)reg_ptr) != 0) {
                 VPRINTF(ERROR, "At offset [%d], mldsa_verify_res data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)reg_ptr));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
