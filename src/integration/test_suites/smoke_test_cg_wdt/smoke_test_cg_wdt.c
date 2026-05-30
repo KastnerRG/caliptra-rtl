@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include "printf.h"
 #include "clk_gate.h"
+#include "riscv_hw_if.h"
 
 volatile uint32_t* stdout           = (uint32_t *)STDOUT;
 volatile uint32_t  intr_count       = 0;
@@ -81,14 +82,14 @@ void main() {
     if (rst_count == 0) {
 
         //Enable SOC notif interrupt
-        *soc_intr_en = SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER1_TIMEOUT_EN_MASK | SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER2_TIMEOUT_EN_MASK;
+        lsu_write_32((uintptr_t)(soc_intr_en), SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER1_TIMEOUT_EN_MASK | SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER2_TIMEOUT_EN_MASK);
 
         //Enable WDT timer1
-        *wdt_timer1_en = SOC_IFC_REG_CPTRA_WDT_TIMER1_EN_TIMER1_EN_MASK;
-        *wdt_timer1_period_0 = 0x00000100;
-        *wdt_timer1_period_1 = 0x00000000;
-        // *wdt_timer2_period_0 = 0x0000FFFF;
-        // *wdt_timer2_period_1 = 0x00000000;
+        lsu_write_32((uintptr_t)(wdt_timer1_en), SOC_IFC_REG_CPTRA_WDT_TIMER1_EN_TIMER1_EN_MASK);
+        lsu_write_32((uintptr_t)(wdt_timer1_period_0), 0x00000100);
+        lsu_write_32((uintptr_t)(wdt_timer1_period_1), 0x00000000);
+        // lsu_write_32((uintptr_t)(wdt_timer2_period_0), 0x0000FFFF);
+        // lsu_write_32((uintptr_t)(wdt_timer2_period_1), 0x00000000);
 
         //============= Case 1 ================
         VPRINTF(LOW, "WDT t1 intr\n");
@@ -98,9 +99,9 @@ void main() {
         VPRINTF(LOW, "Core is awake\n====================\n");
 
         //while ((*soc_ifc_error_status & SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTERNAL_INTR_R_ERROR_WDT_TIMER1_TIMEOUT_STS_MASK) == 1);
-        soc_error_status_int = *soc_ifc_error_status;
+        soc_error_status_int = lsu_read_32((uintptr_t)(soc_ifc_error_status));
         while (soc_error_status_int == SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTERNAL_INTR_R_ERROR_WDT_TIMER1_TIMEOUT_STS_MASK) {
-            soc_error_status_int = *soc_ifc_error_status;
+            soc_error_status_int = lsu_read_32((uintptr_t)(soc_ifc_error_status));
         }
 
         //============= Case 2 ================
@@ -205,13 +206,13 @@ void main() {
     else {
         //WDT independent mode:
         //Enable WDT timer1
-        *wdt_timer1_en = SOC_IFC_REG_CPTRA_WDT_TIMER1_EN_TIMER1_EN_MASK;
-        *wdt_timer1_period_0 = 0x00000100;
-        *wdt_timer1_period_1 = 0x00000000;
+        lsu_write_32((uintptr_t)(wdt_timer1_en), SOC_IFC_REG_CPTRA_WDT_TIMER1_EN_TIMER1_EN_MASK);
+        lsu_write_32((uintptr_t)(wdt_timer1_period_0), 0x00000100);
+        lsu_write_32((uintptr_t)(wdt_timer1_period_1), 0x00000000);
         //Enable WDT timer2
-        *wdt_timer2_en = SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK;
-        *wdt_timer2_period_0 = 0x00000100;
-        *wdt_timer2_period_1 = 0x00000000;
+        lsu_write_32((uintptr_t)(wdt_timer2_en), SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK);
+        lsu_write_32((uintptr_t)(wdt_timer2_period_0), 0x00000100);
+        lsu_write_32((uintptr_t)(wdt_timer2_period_1), 0x00000000);
 
         //============= Case 6 ================
         VPRINTF(LOW, "WDT independent mode and core is halted\n====================\n");

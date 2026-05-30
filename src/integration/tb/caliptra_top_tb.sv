@@ -513,18 +513,35 @@ end
 
 // Drive cptra_pwrgood/cptra_rst_b in response to warm/cold reset flags from TB services
 // (soc_bfm handles this in the non-FB path, so FB needs its own handler)
-always @(posedge core_clk) begin
-    if (assert_hard_rst_flag) begin
-        cptra_pwrgood <= 1'b0;
-        cptra_rst_b   <= 1'b0;
-    end else if (deassert_hard_rst_flag) begin
+// Also handles cptra_error_fatal (WDT NMI) → warm reset (matches soc_bfm behavior).
+logic [5:0] fb_fatal_cnt;
+always @(posedge core_clk or negedge cptra_pwrgood) begin
+    // deassert flags have HIGHEST priority — must fire even when cptra_pwrgood=0
+    // (original code had !cptra_pwrgood first, which blocked deassert_hard_rst_flag
+    //  during cold-reset and left cptra_pwrgood stuck at 0 forever)
+    if (deassert_hard_rst_flag) begin
         cptra_pwrgood <= 1'b1;
-    end else if (assert_rst_flag_from_service) begin
-        cptra_rst_b <= 1'b0;
+        fb_fatal_cnt  <= '0;
     end else if (deassert_rst_flag_from_service) begin
         cptra_rst_b <= 1'b1;
+    end else if (assert_hard_rst_flag) begin
+        cptra_pwrgood <= 1'b0;
+        cptra_rst_b   <= 1'b0;
+        fb_fatal_cnt  <= '0;
+    end else if (assert_rst_flag_from_service) begin
+        cptra_rst_b <= 1'b0;
+        fb_fatal_cnt <= '0;
+    end else if (!cptra_pwrgood) begin
+        fb_fatal_cnt <= '0;
+    end else if (cptra_error_fatal && cptra_rst_b && fb_fatal_cnt == '0) begin
+        fb_fatal_cnt <= 6'd1;
+    end else if (fb_fatal_cnt != '0) begin
+        fb_fatal_cnt <= fb_fatal_cnt + 6'd1;
+        if (fb_fatal_cnt == 6'd10)  cptra_rst_b  <= 1'b0;
+        if (fb_fatal_cnt == 6'd40) begin cptra_rst_b <= 1'b1; fb_fatal_cnt <= '0; end
     end
 end
+
 `endif
 
 // JTAG DPI

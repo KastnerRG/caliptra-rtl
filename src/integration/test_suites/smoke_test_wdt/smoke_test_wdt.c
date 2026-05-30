@@ -65,7 +65,7 @@ void main() {
         set_t1_period(0x00000040, 0x00000000);
         
         VPRINTF(LOW, "Stall until timer1 times out\n");
-        while (!(lsu_read_32(SOC_IFC_REG_CPTRA_WDT_STATUS_T1_TIMEOUT_MASK)));
+        while (!(lsu_read_32(CLP_SOC_IFC_REG_CPTRA_WDT_STATUS) & SOC_IFC_REG_CPTRA_WDT_STATUS_T1_TIMEOUT_MASK));
         VPRINTF(LOW, "WDT T1 timed out as expected\n");
         lsu_write_32((uintptr_t)(wdt_timer1_ctrl), SOC_IFC_REG_CPTRA_WDT_TIMER1_CTRL_TIMER1_RESTART_MASK);
 
@@ -107,13 +107,13 @@ void main() {
         set_t2_period(0x00000040, 0x00000000);
         
         VPRINTF(LOW, "Stall until timer2 times out\n");
-        while (!(lsu_read_32(SOC_IFC_REG_CPTRA_WDT_STATUS_T2_TIMEOUT_MASK)));
-        VPRINTF(LOW, "WDT T2 timed out as expected\n")
+        while (!(lsu_read_32(CLP_SOC_IFC_REG_CPTRA_WDT_STATUS) & SOC_IFC_REG_CPTRA_WDT_STATUS_T2_TIMEOUT_MASK));
+        VPRINTF(LOW, "WDT T2 timed out as expected\n");
         //Release forced timer periods from tb so test can set them
         // SEND_STDOUT_CTRL(0xf1);
 
         //Write 1 to clear HW fatal error register
-        if ((lsu_read_32((uintptr_t)(hw_error_fatal)) && SOC_IFC_REG_CPTRA_HW_ERROR_FATAL_NMI_PIN_MASK) == 1) {
+        if ((lsu_read_32((uintptr_t)(hw_error_fatal)) & SOC_IFC_REG_CPTRA_HW_ERROR_FATAL_NMI_PIN_MASK) != 0) {
             lsu_write_32((uintptr_t)(hw_error_fatal), SOC_IFC_REG_CPTRA_HW_ERROR_FATAL_NMI_PIN_MASK);
         }
         else {

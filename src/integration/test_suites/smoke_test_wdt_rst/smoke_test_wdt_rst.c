@@ -67,8 +67,8 @@ void main() {
     VPRINTF(LOW, "---------------------------\n");
 
     //Enable SOC error interrupt
-    *soc_global_intr_en = SOC_IFC_REG_INTR_BLOCK_RF_GLOBAL_INTR_EN_R_ERROR_EN_MASK;
-    *soc_intr_en = SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER1_TIMEOUT_EN_MASK | SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER2_TIMEOUT_EN_MASK;
+    lsu_write_32((uintptr_t)(soc_global_intr_en), SOC_IFC_REG_INTR_BLOCK_RF_GLOBAL_INTR_EN_R_ERROR_EN_MASK);
+    lsu_write_32((uintptr_t)(soc_intr_en), SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER1_TIMEOUT_EN_MASK | SOC_IFC_REG_INTR_BLOCK_RF_ERROR_INTR_EN_R_ERROR_WDT_TIMER2_TIMEOUT_EN_MASK);
     
     //Call interrupt init
     // init_interrupts();
@@ -92,7 +92,7 @@ void main() {
         SEND_STDOUT_CTRL(0xf1);
         configure_wdt_cascade(0x200, 0x00, 0xffffffff, 0xffffffff);
 
-        *wdt_timer1_ctrl = SOC_IFC_REG_CPTRA_WDT_TIMER1_CTRL_TIMER1_RESTART_MASK;
+        lsu_write_32((uintptr_t)(wdt_timer1_ctrl), SOC_IFC_REG_CPTRA_WDT_TIMER1_CTRL_TIMER1_RESTART_MASK);
 
         service_t1_intr();
         SEND_STDOUT_CTRL(0xf5);
@@ -104,18 +104,18 @@ void main() {
         // set_t2_period(0x00000200, 0x00000000);
         configure_wdt_independent(BOTH_TIMERS_EN, 0x200, 0x00000000, 0x200, 0x00000000);
         //Enable WDT timer2
-        // *wdt_timer2_en = SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK;
+        // lsu_write_32((uintptr_t)(wdt_timer2_en), SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK);
     
         VPRINTF(LOW, "Independent mode - both timers enabled - warm rst\n");
         
         VPRINTF(LOW, "Stall until timer1 times out\n");
         service_t1_intr();
         //reset t1
-        *wdt_timer1_en = 0;
+        lsu_write_32((uintptr_t)(wdt_timer1_en), 0);
         
         service_t2_intr();
         //reset t2
-        *wdt_timer2_en = 0;
+        lsu_write_32((uintptr_t)(wdt_timer2_en), 0);
         
         SEND_STDOUT_CTRL(0xf6);
     }
@@ -127,16 +127,16 @@ void main() {
     
         VPRINTF(LOW, "Independent mode - both timers enabled - cold rst\n");
         //Enable WDT timer1
-        // *wdt_timer2_en = SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK;
+        // lsu_write_32((uintptr_t)(wdt_timer2_en), SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK);
         // set_t2_period(0x00000200, 0x00000000);
         
         VPRINTF(LOW, "Stall until timer1 times out\n");
         service_t1_intr();
-        *wdt_timer1_en = 0;
+        lsu_write_32((uintptr_t)(wdt_timer1_en), 0);
 
         VPRINTF(LOW, "Stall until timer2 times out\n");
         service_t2_intr();
-        *wdt_timer2_en = 0;
+        lsu_write_32((uintptr_t)(wdt_timer2_en), 0);
         
         SEND_STDOUT_CTRL(0xf5);
     }
@@ -145,14 +145,14 @@ void main() {
         SEND_STDOUT_CTRL(0xf1);
         configure_wdt_cascade(0x200, 0x00, 0xffffffff, 0xffffffff);
         VPRINTF(LOW, "Cascaded mode with timer2 timeout - NMI - cold rst\n");
-        *wdt_timer1_en = 0x0;
-        *wdt_timer2_en = 0x0;
-//        *wdt_timer1_ctrl = 0x1; //restart counter so timer1 can start counting
+        lsu_write_32((uintptr_t)(wdt_timer1_en), 0x0);
+        lsu_write_32((uintptr_t)(wdt_timer2_en), 0x0);
+//        lsu_write_32((uintptr_t)(wdt_timer1_ctrl), 0x1); //restart counter so timer1 can start counting
         
         set_t2_period(0x00000200, 0x00000000);
 
-        *wdt_timer1_en = 0x1;
-        *wdt_timer1_ctrl = 0x1; //restart counter so timer1 can start counting
+        lsu_write_32((uintptr_t)(wdt_timer1_en), 0x1);
+        lsu_write_32((uintptr_t)(wdt_timer1_ctrl), 0x1); //restart counter so timer1 can start counting
         
         VPRINTF(LOW, "Stall until timer1 times out\n");
         VPRINTF(LOW, "Stall until timer2 times out\n");
@@ -175,12 +175,12 @@ void main() {
         }
 
         VPRINTF(LOW, "Independent mode - timer2 enabled, timer1 disabled - warm rst\n");
-        *wdt_timer2_en = SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK;
+        lsu_write_32((uintptr_t)(wdt_timer2_en), SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK);
         set_t2_period(0x00000200, 0x00000000);
         
         VPRINTF(LOW, "Stall until timer2 times out\n");
         service_t2_intr();
-        *wdt_timer2_en = 0;
+        lsu_write_32((uintptr_t)(wdt_timer2_en), 0);
         
         SEND_STDOUT_CTRL(0xf6);
 
@@ -189,13 +189,13 @@ void main() {
         //Release forced timer periods from tb so test can set them
         SEND_STDOUT_CTRL(0xf1);
         VPRINTF(LOW, "Independent mode - timer2 enabled, timer1 disabled - cold rst\n");
-        // *wdt_timer2_en = SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK;
+        // lsu_write_32((uintptr_t)(wdt_timer2_en), SOC_IFC_REG_CPTRA_WDT_TIMER2_EN_TIMER2_EN_MASK);
         // set_t2_period(0x00000200, 0x00000000);
         configure_wdt_independent(T1_DIS_T2_EN, 0x200, 0x00000000, 0x200, 0x00000000);
         
         VPRINTF(LOW, "Stall until timer2 times out\n");
         service_t2_intr();
-        *wdt_timer2_en = 0;
+        lsu_write_32((uintptr_t)(wdt_timer2_en), 0);
         
         SEND_STDOUT_CTRL(0xf5);
     }
