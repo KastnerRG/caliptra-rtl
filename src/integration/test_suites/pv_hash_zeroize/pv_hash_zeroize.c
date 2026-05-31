@@ -84,23 +84,24 @@ void main() {
 
     sha_poll_gen_hash_ready();
     //check expected output from digest
+    reg_ptr = (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_0;
     offset = 0;
-    for (uint32_t daddr = CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_0;
-         daddr <= CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_11; daddr += 4, offset++) {
-        read_data = lsu_read_32(daddr);
+    while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_11) {
+        read_data = *reg_ptr++;
         if (read_data != 0) {
             VPRINTF(FATAL,"SHA Result Mismatch - EXP: 0x%x RECVD: 0x%x\n", 0, read_data);
             SEND_STDOUT_CTRL( 0x01);
         }
+        offset++;
     }
     VPRINTF(MEDIUM,"Zeroize for sha is completed\n");
 
     SEND_STDOUT_CTRL(0xf3); //init pcr vault entry 1f
     sha_poll_gen_hash_ready();
+    reg_ptr = (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_NONCE_0;
     offset = 0;
-    for (uint32_t naddr = CLP_SHA512_REG_SHA512_GEN_PCR_HASH_NONCE_0;
-         naddr <= CLP_SHA512_REG_SHA512_GEN_PCR_HASH_NONCE_7; naddr += 4, offset++) {
-        lsu_write_32(naddr, nonce[offset]);
+    while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_NONCE_7) {
+        *reg_ptr++ = nonce[offset++];
     }
     sha_gen_hash_start();
 
@@ -111,14 +112,15 @@ void main() {
     sha_poll_gen_hash_valid();
 
     //check expected output from digest
+    reg_ptr = (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_0;
     offset = 0;
-    for (uint32_t daddr = CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_0;
-         daddr <= CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_11; daddr += 4, offset++) {
-        read_data = lsu_read_32(daddr);
+    while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_GEN_PCR_HASH_DIGEST_11) {
+        read_data = *reg_ptr++;
         if (exp3[offset] != read_data) {
             VPRINTF(FATAL,"SHA Result Mismatch - EXP: 0x%x RECVD: 0x%x\n", exp3[offset], read_data);
             SEND_STDOUT_CTRL( 0x01);
         }
+        offset++;
     }
 
     VPRINTF(LOW,"----------------------------------\n");

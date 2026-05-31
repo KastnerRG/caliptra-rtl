@@ -207,14 +207,14 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), value_greater_p[offset++]);
+            *reg_ptr++ = value_greater_p[offset++];
         }
 
         // Program ECC PUBKEY_Y
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), value_greater_p[offset++]);
+            *reg_ptr++ = value_greater_p[offset++];
         }
 
         // Enable ECDH core
@@ -243,14 +243,14 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), ecc_pubkey_y[offset++]);
+            *reg_ptr++ = ecc_pubkey_y[offset++];
         }
 
         // Program ECC PUBKEY_Y
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), ecc_pubkey_x[offset++]);
+            *reg_ptr++ = ecc_pubkey_x[offset++];
         }
 
         // Enable ECDH core
@@ -279,14 +279,14 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_X_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), ecc_pubkey_x[offset++]);
+            *reg_ptr++ = ecc_pubkey_x[offset++];
         }
 
         // Program ECC PUBKEY_Y
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_PUBKEY_Y_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), ecc_pubkey_y[offset++]);
+            *reg_ptr++ = ecc_pubkey_y[offset++];
         }
 
         VPRINTF(LOW, "Inject invalid shared_key\n");

@@ -15,7 +15,6 @@
 
 #include "caliptra_defines.h"
 #include "caliptra_isr.h"
-#include "riscv_hw_if.h"
 #include "riscv-csr.h"
 #include <string.h>
 #include <stdint.h>
@@ -81,35 +80,41 @@ void main() {
 
     //Start UDS and store in KV3
     SEND_STDOUT_CTRL(0xec);
-    lsu_write_32(CLP_DOE_REG_DOE_CTRL, 0x0000000D);
+    *doe_ctrl = 0x0000000D;
 
-    ((void)0); // VeeR CSR write (no-op under FireBridge)
+    __asm__ volatile ("csrwi    %0, %1" \
+                    : /* output: none */        \
+                    : "i" (0x7c6), "i" (0x03)  /* input : immediate  */ \
+                    : /* clobbers: none */);
 
     // //Poll for DOE status
     while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-        doe_status_int = lsu_read_32(CLP_DOE_REG_DOE_STATUS);
+        doe_status_int = *doe_status;
         doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
     }
 
     //Clear doe_status_int
     doe_status_int = 0;
-
+    
     //--------------------------------------------------------------------
     //Enable clk gating and halt core
     SEND_STDOUT_CTRL(0xf2);
     set_mit0(mitb0, mie_timer0_en);
-
+    
     VPRINTF(LOW, "Rand FE\n");
 
     //Start FE and store in KV7
     SEND_STDOUT_CTRL(0xed);
-    lsu_write_32(CLP_DOE_REG_DOE_CTRL, 0x0000001E);
+    *doe_ctrl = 0x0000001E;
 
-    ((void)0); // VeeR CSR write (no-op under FireBridge)
+    __asm__ volatile ("csrwi    %0, %1" \
+                    : /* output: none */        \
+                    : "i" (0x7c6), "i" (0x03)  /* input : immediate  */ \
+                    : /* clobbers: none */);
 
     // //Poll for DOE status
     while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-        doe_status_int = lsu_read_32(CLP_DOE_REG_DOE_STATUS);
+        doe_status_int = *doe_status;
         doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
     }
 

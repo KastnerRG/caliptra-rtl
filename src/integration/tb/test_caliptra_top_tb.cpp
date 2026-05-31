@@ -65,7 +65,6 @@ extern "C" void at_posedge_clk() {
 }
 #endif
 
-
 int main(int argc, char** argv) {
   std::cout << "\nVerilatorTB: Start of sim\n" << std::endl;
 

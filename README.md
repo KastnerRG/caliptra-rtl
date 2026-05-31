@@ -28,7 +28,7 @@ OS:
 
 Lint:
  - Synopsys Spyglass
-   - `Version S-2021.09-1`
+   - `Version X-2025.06-SP1-1`
  - Real Intent AscentLint
    - `Version 2019.A.p15 for RHEL 6.0-64, Rev 116515, Built On 12/18/2020`
 
@@ -36,7 +36,7 @@ Simulation:
  - Synopsys VCS with Verdi
    - `Version R-2020.12-SP2-7_Full64`
  - Verilator
-   - `Version 5.012`
+   - `Version 5.044`
  - Mentor Graphics QVIP
    - `Version 2021.2.1` of AHB models
  - Avery AXI VIP
@@ -351,6 +351,8 @@ These three programs are designed to be run within the context of a UVM simulati
 ## **NOTES** ##
 
 * Register documentation is auto-rendered at the GitHub page
+  * [main internal registers](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs)
+  * [main external registers](https://chipsalliance.github.io/caliptra-rtl/main/external-regs)
   * [v2.1 internal registers](https://chipsalliance.github.io/caliptra-rtl/v2_1/internal-regs)
   * [v2.1 external registers](https://chipsalliance.github.io/caliptra-rtl/v2_1/external-regs)
   * [v2.0 internal registers](https://chipsalliance.github.io/caliptra-rtl/v2_0/internal-regs)

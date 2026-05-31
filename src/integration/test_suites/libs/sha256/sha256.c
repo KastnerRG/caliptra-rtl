@@ -23,10 +23,10 @@ extern volatile caliptra_intr_received_s cptra_intr_rcv;
 void wait_for_sha256_intr(uint32_t notif, uint32_t error){
     VPRINTF(LOW, "SHA256 flow in progress...\n");
     while(((cptra_intr_rcv.sha256_error & error) != error) || ((cptra_intr_rcv.sha256_notif & notif) != notif)){
-        asm_wfi(); // "Wait for interrupt"
+        __asm__ volatile ("wfi"); // "Wait for interrupt"
         // Sleep during SHA256 operation to allow ISR to execute and show idle time in sims
         for (uint16_t slp = 0; slp < 100; slp++) {
-            asm_nop(); // Sleep loop as "nop"
+            __asm__ volatile ("nop"); // Sleep loop as "nop"
         }
     };
     if (error) {
@@ -57,8 +57,7 @@ void sha256_flow(sha256_io block, uint8_t mode, uint8_t wntz_mode, uint8_t wntz_
     reg_ptr = (uint32_t*) CLP_SHA256_REG_SHA256_BLOCK_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA256_REG_SHA256_BLOCK_15) {
-        lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]);
-        reg_ptr++;
+        *reg_ptr++ = block.data[offset++];
     }
 
     // Enable SHA256 core 
@@ -75,7 +74,7 @@ void sha256_flow(sha256_io block, uint8_t mode, uint8_t wntz_mode, uint8_t wntz_
     VPRINTF(LOW, "Load DIGEST data from SHA256\n");
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA256_REG_SHA256_DIGEST_7) {
-        sha256_digest[offset] = lsu_read_32((uintptr_t) reg_ptr);
+        sha256_digest[offset] = *reg_ptr;
         if (sha256_digest[offset] != digest.data[offset]) {
             VPRINTF(ERROR, "At offset [%d], sha_digest data mismatch!\n", offset);
             VPRINTF(ERROR, "Actual   data: 0x%x\n", sha256_digest[offset]);
@@ -102,8 +101,7 @@ void sha256_error_flow(sha256_io block, uint8_t mode, uint8_t next, uint8_t wntz
     reg_ptr = (uint32_t*) CLP_SHA256_REG_SHA256_BLOCK_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA256_REG_SHA256_BLOCK_15) {
-        lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]);
-        reg_ptr++;
+        *reg_ptr++ = block.data[offset++];
     }
 
     // init and next triggers error1 bit. Check to make sure correct error arg is given

@@ -47,6 +47,7 @@ targets:
       - $COMPILE_ROOT/coverage
     files:
       - $COMPILE_ROOT/coverage/soc_ifc_cov_if.sv
+      - $COMPILE_ROOT/coverage/soc_ifc_iccm_shadow_cov.sv
       - $COMPILE_ROOT/coverage/soc_ifc_cov_bind.sv
 ---
 provides: [soc_ifc_top]
@@ -100,6 +101,7 @@ global:
       default:
         - '-assert svaext'
         - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
         #- '-v2k_generate'
         #- '-timescale=1ns/1ps'
         - '-noinherit_timescale=1ns/1ps'
@@ -111,7 +113,6 @@ provides: [soc_ifc_axi_sha_acc_dis_tb]
 schema_version: 2.4.0
 requires:
   - soc_ifc_coverage
-  - axi_dma_coverage
   - soc_ifc_top
 targets:
   tb:
@@ -128,6 +129,7 @@ global:
       default:
         - '-assert svaext'
         - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
         #- '-v2k_generate'
         #- '-timescale=1ns/1ps'
         - '-noinherit_timescale=1ns/1ps'
@@ -138,6 +140,8 @@ global:
 provides: [soc_ifc_tb_ss]
 schema_version: 2.4.0
 requires:
+  - soc_ifc_coverage
+  - axi_dma_coverage
   - soc_ifc_tb
 targets:
   tb:
@@ -150,6 +154,7 @@ global:
         - +define+CALIPTRA_MODE_SUBSYSTEM
         - +define+CALIPTRA_INTERNAL_TRNG
         - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
         #- '-v2k_generate'
         #- '-timescale=1ns/1ps'
         - '-noinherit_timescale=1ns/1ps'

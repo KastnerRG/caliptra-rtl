@@ -13,9 +13,8 @@ targets:
       - $COMPILE_ROOT/rtl/hmac_reg_pkg.sv
       - $COMPILE_ROOT/rtl/hmac_ctrl.sv
       - $COMPILE_ROOT/rtl/hmac.sv
-      - $COMPILE_ROOT/rtl/hmac_core.v
+      - $COMPILE_ROOT/rtl/hmac_core.sv
       - $COMPILE_ROOT/rtl/hmac_reg.sv
-      - $COMPILE_ROOT/rtl/hmac_lfsr.sv
     tops: [hmac_ctrl]
   rtl_lint:
     directories: []
@@ -35,6 +34,14 @@ targets:
     files:
       - $COMPILE_ROOT/tb/hmac_ctrl_tb.sv
     tops: [hmac_ctrl_tb]
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
+        - '-noinherit_timescale=1ns/1ps'
 ---
 provides: [hmac_coverage]  
 schema_version: 2.4.0

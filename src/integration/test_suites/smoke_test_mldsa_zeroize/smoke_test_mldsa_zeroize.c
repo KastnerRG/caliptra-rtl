@@ -194,10 +194,10 @@ void main() {
         offset = 0;
         while ((*status_ptr == 0) & (offset < end_addr)) {
             // Try to Overwrite data in MLDSA
-            lsu_write_32((uintptr_t)(reg_ptr), rand() % 0xffffffff);
-            if (lsu_read_32((uintptr_t)(reg_ptr)) != 0) {
+            *reg_ptr = rand() % 0xffffffff;
+            if (*reg_ptr != 0) {
                 VPRINTF(ERROR, "At offset [%d], mldsa data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)(reg_ptr)));
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);

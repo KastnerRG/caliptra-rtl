@@ -15,13 +15,14 @@ contents:
         - ${CALIPTRA_ROOT}/src/integration/test_suites/randomized_mldsa_invalid_verify/randomized_mldsa_invalid_verify.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mldsa_keygen_sign_vfy_rand/smoke_test_mldsa_keygen_sign_vfy_rand.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mldsa_keygen_standalone_sign_vfy_rand/smoke_test_mldsa_keygen_standalone_sign_vfy_rand.yml
+        - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mldsa_sign_rnd/smoke_test_mldsa_sign_rnd.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_kv_crypto_flow/smoke_test_kv_crypto_flow.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_kv_crypto_flow2/smoke_test_kv_crypto_flow2.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mldsa_locked_api/smoke_test_mldsa_locked_api.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/mldsa_pcr_inject_failure/mldsa_pcr_inject_failure.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mldsa_zeroize/smoke_test_mldsa_zeroize.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mlkem/smoke_test_mlkem.yml
-        - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mlkem_kv/smoke_test_mlkem_kv.yml
+        - ${CALIPTRA_ROOT}/src/integration/test_suites/randomized_mlkem_kv/randomized_mlkem_kv.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mlkem_shared_key/smoke_test_mlkem_shared_key.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mlkem_kv_endian/smoke_test_mlkem_kv_endian.yml
         - ${CALIPTRA_ROOT}/src/integration/test_suites/smoke_test_mlkem_errortrigger/smoke_test_mlkem_errortrigger.yml

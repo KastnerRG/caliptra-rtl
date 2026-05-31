@@ -222,6 +222,12 @@ import aaxi_uvm_pkg::*;
     end
     assign cptra_rst_b_dly_assert_simult_deassert = cptra_rst_b_d | soc_ifc_subenv_soc_ifc_ctrl_agent_bus.cptra_rst_b;
 
+    // Ensure cptra_rst_b/cptra_pwrgood are 0 at elaboration (before delta 0),
+    // preventing X-triggered assertions in soc_ifc_reg.sv external ack logic.
+    // The driver BFM overrides these weak pulls once UVM configures it as INITIATOR.
+    pulldown (soc_ifc_subenv_soc_ifc_ctrl_agent_bus.cptra_rst_b);
+    pulldown (soc_ifc_subenv_soc_ifc_ctrl_agent_bus.cptra_pwrgood);
+
     aaxi_intf #(
         .MCB_INPUT (aaxi_pkg::AAXI_MCB_INPUT ),
         .MCB_OUTPUT(aaxi_pkg::AAXI_MCB_OUTPUT),
@@ -427,6 +433,10 @@ import aaxi_uvm_pkg::*;
         s_axi_if.aruser  = ports[0].ARUSER;
         s_axi_if.arid    = ports[0].ARID;
         s_axi_if.arlock  = ports[0].ARLOCK;
+        s_axi_if.arcache = ports[0].ARCACHE ;
+        s_axi_if.arprot  = ports[0].ARPROT  ;
+        s_axi_if.arqos   = ports[0].ARQOS   ;
+        s_axi_if.arregion= ports[0].ARREGION;
         s_axi_if.arvalid = ports[0].ARVALID;
         ports[0].ARREADY = s_axi_if.arready;
 
@@ -447,6 +457,10 @@ import aaxi_uvm_pkg::*;
         s_axi_if.awuser  = ports[0].AWUSER;
         s_axi_if.awid    = ports[0].AWID;
         s_axi_if.awlock  = ports[0].AWLOCK;
+        s_axi_if.awcache = ports[0].AWCACHE ;
+        s_axi_if.awprot  = ports[0].AWPROT  ;
+        s_axi_if.awqos   = ports[0].AWQOS   ;
+        s_axi_if.awregion= ports[0].AWREGION;
         s_axi_if.awvalid = ports[0].AWVALID;
         ports[0].AWREADY = s_axi_if.awready;
 
@@ -587,6 +601,7 @@ import aaxi_uvm_pkg::*;
     );
 
   caliptra_top_sva sva();
+  kv_boot_flow_sva kv_boot_flow_sva();
   // pragma uvmf custom dut_instantiation end
 
   initial begin      // tbx vif_binding_block 

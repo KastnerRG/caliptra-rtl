@@ -208,7 +208,7 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
+            *reg_ptr++ = ecc_iv[offset++];
         }
 
         //Inject invalid zero sign_r
@@ -251,7 +251,7 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
+            *reg_ptr++ = ecc_iv[offset++];
         }
 
         //inject seed to kv key reg (in RTL)
@@ -291,7 +291,7 @@ void main() {
         reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11) {
-            lsu_write_32((uintptr_t)(reg_ptr++), ecc_iv[offset++]);
+            *reg_ptr++ = ecc_iv[offset++];
         }
 
         //inject seed to kv key reg (in RTL)

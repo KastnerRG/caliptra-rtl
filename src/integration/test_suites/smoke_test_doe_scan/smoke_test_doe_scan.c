@@ -19,7 +19,6 @@
 #include <string.h>
 #include <stdint.h>
 #include "printf.h"
-#include "riscv_hw_if.h"
 #include "clk_gate.h"
 
 volatile uint32_t* stdout           = (uint32_t *)STDOUT;
@@ -93,11 +92,11 @@ void main() {
 
     //Start UDS and store in KV3
     SEND_STDOUT_CTRL(0xec);
-    lsu_write_32((uintptr_t)(doe_ctrl), 0x0000000D);
+    *doe_ctrl = 0x0000000D;
 
     // //Poll for DOE status
     while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-        doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+        doe_status_int = *doe_status;
         doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
     }
 
@@ -106,11 +105,11 @@ void main() {
 
     //Start FE and store in KV23
     SEND_STDOUT_CTRL(0xed);
-    lsu_write_32((uintptr_t)(doe_ctrl), 0x0000005e); //Entry 23, FE flow;
+    *doe_ctrl = 0x0000005e; //Entry 23, FE flow;
 
     // //Poll for DOE status
     while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-        doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+        doe_status_int = *doe_status;
         doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
     }
 
@@ -128,11 +127,11 @@ void main() {
         SEND_STDOUT_CTRL(0xef); //Enable scan mode after a delay
         wait_for_cryptos_ready();
 
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x0000000D); //Start UDS flow
+        *doe_ctrl = 0x0000000D; //Start UDS flow
 
         // //Poll for DOE status
         while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-            doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+            doe_status_int = *doe_status;
             doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
         }
 
@@ -150,11 +149,11 @@ void main() {
 
         wait_for_cryptos_ready();
 
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x0000005e); //Start FE flow
+        *doe_ctrl = 0x0000005e; //Start FE flow
 
         // //Poll for DOE status
         while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-            doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+            doe_status_int = *doe_status;
             doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
         }
 
@@ -184,11 +183,11 @@ void main() {
     }
     else if (rst_count == 5) {
         SEND_STDOUT_CTRL(0xed); //Generate rand FE vector
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x0000005e); //Start FE flow
+        *doe_ctrl = 0x0000005e; //Start FE flow
 
         // //Poll for DOE status
         while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-            doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+            doe_status_int = *doe_status;
             doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
         }while((lsu_read_32(CLP_DOE_REG_DOE_STATUS) & DOE_REG_DOE_STATUS_VALID_MASK) == 0);
 
@@ -203,11 +202,11 @@ void main() {
         
         wait_for_cryptos_ready();
 
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x0000000D); //Start UDS flow
+        *doe_ctrl = 0x0000000D; //Start UDS flow
 
         // //Poll for DOE status
         while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-            doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+            doe_status_int = *doe_status;
             doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
         }
 

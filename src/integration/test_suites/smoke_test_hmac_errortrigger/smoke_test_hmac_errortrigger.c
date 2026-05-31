@@ -177,17 +177,18 @@ void main() {
 
         // Load TAG data from HMAC
         VPRINTF(LOW, "Load TAG data from HMAC\n");
+        reg_ptr = (uint32_t *) CLP_HMAC_REG_HMAC512_TAG_0;
         offset = 0;
-        for (uint32_t tag_addr = CLP_HMAC_REG_HMAC512_TAG_0;
-             tag_addr <= CLP_HMAC_REG_HMAC512_TAG_15; tag_addr += 4, offset++) {
-            uint32_t tag_val = lsu_read_32(tag_addr);
-            if (tag_val != 0) {
+        while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_TAG_15) {
+            if (*reg_ptr != 0) {
                 VPRINTF(ERROR, "At offset [%d], hmac_tag data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", tag_val);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
             }
+            reg_ptr++;
+            offset++;
         }
 
         // Enable HMAC core zeroize
@@ -198,17 +199,18 @@ void main() {
 
         // Load TAG data from HMAC
         VPRINTF(LOW, "Load TAG data from HMAC\n");
+        reg_ptr = (uint32_t *) CLP_HMAC_REG_HMAC512_TAG_0;
         offset = 0;
-        for (uint32_t tag_addr = CLP_HMAC_REG_HMAC512_TAG_0;
-             tag_addr <= CLP_HMAC_REG_HMAC512_TAG_15; tag_addr += 4, offset++) {
-            uint32_t tag_val = lsu_read_32(tag_addr);
-            if (tag_val != 0) {
+        while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_TAG_15) {
+            if (*reg_ptr != 0) {
                 VPRINTF(ERROR, "At offset [%d], hmac_tag data mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", tag_val);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
             }
+            reg_ptr++;
+            offset++;
         }
     }
     // Write 0xff to STDOUT for TB to terminate test.

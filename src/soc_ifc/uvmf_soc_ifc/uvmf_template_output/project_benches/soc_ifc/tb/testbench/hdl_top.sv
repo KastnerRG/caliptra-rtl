@@ -65,10 +65,9 @@ import aaxi_uvm_pkg::*;
   // tbx clkgen
   initial begin
     clk = 0;
-    #0ns;
     forever begin
-      clk = ~clk;
       #5ns;
+      clk = ~clk;
     end
   end
 // pragma uvmf custom clock_generator end
@@ -341,6 +340,8 @@ import aaxi_uvm_pkg::*;
         .ss_ocp_lock_in_progress(    /*TODO*/),
         .ss_key_release_key_size(    /*TODO*/),
 
+        .stable_owner_key_en(       /*TODO*/),
+
         // NMI Vector 
         .nmi_vector(cptra_status_agent_bus.nmi_vector),
         .nmi_intr(cptra_status_agent_bus.nmi_intr),
@@ -358,6 +359,12 @@ import aaxi_uvm_pkg::*;
         .rdc_clk_dis          (                                           ), // TODO
         .fw_update_rst_window (cptra_status_agent_bus.fw_update_rst_window),
         .crypto_error         (cptra_ctrl_agent_bus.crypto_error          ),
+        .iccm_fmc_start_addr  (                                           ),
+        .iccm_fmc_end_addr    (                                           ),
+        .iccm_rt_start_addr   (                                           ),
+        .iccm_rt_end_addr     (                                           ),
+        .iccm_region_lock     (                                           ),
+        .kv_error             (1'b0                                       ),
 
         //caliptra uncore jtag ports
         .cptra_uncore_dmi_reg_en   (1'b0 ),
@@ -392,6 +399,10 @@ import aaxi_uvm_pkg::*;
         s_axi_if.aruser  = ports[0].ARUSER;
         s_axi_if.arid    = ports[0].ARID;
         s_axi_if.arlock  = ports[0].ARLOCK;
+        s_axi_if.arcache = ports[0].ARCACHE ;
+        s_axi_if.arprot  = ports[0].ARPROT  ;
+        s_axi_if.arqos   = ports[0].ARQOS   ;
+        s_axi_if.arregion= ports[0].ARREGION;
         s_axi_if.arvalid = ports[0].ARVALID;
         ports[0].ARREADY = s_axi_if.arready;
 
@@ -412,6 +423,10 @@ import aaxi_uvm_pkg::*;
         s_axi_if.awuser  = ports[0].AWUSER;
         s_axi_if.awid    = ports[0].AWID;
         s_axi_if.awlock  = ports[0].AWLOCK;
+        s_axi_if.awcache = ports[0].AWCACHE ;
+        s_axi_if.awprot  = ports[0].AWPROT  ;
+        s_axi_if.awqos   = ports[0].AWQOS   ;
+        s_axi_if.awregion= ports[0].AWREGION;
         s_axi_if.awvalid = ports[0].AWVALID;
         ports[0].AWREADY = s_axi_if.awready;
 

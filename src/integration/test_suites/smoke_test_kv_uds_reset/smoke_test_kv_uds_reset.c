@@ -19,7 +19,6 @@
 #include <string.h>
 #include <stdint.h>
 #include "printf.h"
-#include "riscv_hw_if.h"
 
 volatile uint32_t* stdout           = (uint32_t *)STDOUT;
 volatile uint32_t  intr_count = 0;
@@ -67,13 +66,13 @@ void main() {
     if(rst_count == 0) {
         VPRINTF(LOW,"1st UDS flow + warm reset\n");
         //Write UDS IV
-        lsu_write_32((uintptr_t)(doe_iv_0), IV_DATA_UDS0);
-        lsu_write_32((uintptr_t)(doe_iv_1), IV_DATA_UDS1);
-        lsu_write_32((uintptr_t)(doe_iv_2), IV_DATA_UDS2);
-        lsu_write_32((uintptr_t)(doe_iv_3), IV_DATA_UDS3);
+        *doe_iv_0 = IV_DATA_UDS0;
+        *doe_iv_1 = IV_DATA_UDS1;
+        *doe_iv_2 = IV_DATA_UDS2;
+        *doe_iv_3 = IV_DATA_UDS3;
 
         //Start UDS and store in KV0
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x00000001);
+        *doe_ctrl = 0x00000001;
         //Issue warm reset after starting UDS - Interrupts UDS flow so lock_uds_flow should not be set
         rst_count++;
         SEND_STDOUT_CTRL(0xf6);
@@ -81,34 +80,39 @@ void main() {
     else if(rst_count == 1) {
         VPRINTF(LOW,"2nd UDS flow + warm reset\n");
         //Rewrite UDS IV
-        lsu_write_32((uintptr_t)(doe_iv_0), IV_DATA_UDS0);
-        lsu_write_32((uintptr_t)(doe_iv_1), IV_DATA_UDS1);
-        lsu_write_32((uintptr_t)(doe_iv_2), IV_DATA_UDS2);
-        lsu_write_32((uintptr_t)(doe_iv_3), IV_DATA_UDS3);
+        *doe_iv_0 = IV_DATA_UDS0;
+        *doe_iv_1 = IV_DATA_UDS1;
+        *doe_iv_2 = IV_DATA_UDS2;
+        *doe_iv_3 = IV_DATA_UDS3;
 
         //Restart UDS and store in KV0
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x00000001);
+        *doe_ctrl = 0x00000001;
 
         //Issue warm reset right before lock_uds_flow is set
          rst_count++;
          SEND_STDOUT_CTRL(0xf7);
-        // Note: in VeeR sim, CPU resets here before reaching the DOE poll.
-        // In FB mode, we skip the poll (dead code) so main() returns naturally.
+
+        // //Poll for DOE status
+        while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
+            doe_status_int = *doe_status;
+            doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
+        }
+        doe_status_int = 0x00000000; //reset internal status register to reuse next time
     }
     else if(rst_count == 2) {
         VPRINTF(LOW,"3rd UDS flow + warm reset\n");
         //Rewrite UDS IV
-        lsu_write_32((uintptr_t)(doe_iv_0), IV_DATA_UDS0);
-        lsu_write_32((uintptr_t)(doe_iv_1), IV_DATA_UDS1);
-        lsu_write_32((uintptr_t)(doe_iv_2), IV_DATA_UDS2);
-        lsu_write_32((uintptr_t)(doe_iv_3), IV_DATA_UDS3);
+        *doe_iv_0 = IV_DATA_UDS0;
+        *doe_iv_1 = IV_DATA_UDS1;
+        *doe_iv_2 = IV_DATA_UDS2;
+        *doe_iv_3 = IV_DATA_UDS3;
 
         //Restart UDS and store in KV0 - this should go through since lock_uds_flow is not set and it will overwrite KV entries
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x00000001);
+        *doe_ctrl = 0x00000001;
 
         //Poll for DOE status
         while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-            doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+            doe_status_int = *doe_status;
             doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
         }
         doe_status_int = 0x00000000; //reset internal status register to reuse next time
@@ -125,33 +129,33 @@ void main() {
     else if(rst_count == 4) {
         VPRINTF(LOW,"4th UDS flow after cold reset\n");
         //Rewrite UDS IV
-        lsu_write_32((uintptr_t)(doe_iv_0), IV_DATA_UDS0);
-        lsu_write_32((uintptr_t)(doe_iv_1), IV_DATA_UDS1);
-        lsu_write_32((uintptr_t)(doe_iv_2), IV_DATA_UDS2);
-        lsu_write_32((uintptr_t)(doe_iv_3), IV_DATA_UDS3);
+        *doe_iv_0 = IV_DATA_UDS0;
+        *doe_iv_1 = IV_DATA_UDS1;
+        *doe_iv_2 = IV_DATA_UDS2;
+        *doe_iv_3 = IV_DATA_UDS3;
 
         //Restart UDS and store in KV0 - this should go through since lock_uds_flow is not set and it will overwrite KV entries
-        lsu_write_32((uintptr_t)(doe_ctrl), 0x00000001);
+        *doe_ctrl = 0x00000001;
 
         //Poll for DOE status
         while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-            doe_status_int = lsu_read_32((uintptr_t)(doe_status));
+            doe_status_int = *doe_status;
             doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
         }
         VPRINTF(LOW, "DOE Status %d \n", doe_status_int);
 
         //Set KV locks
-        lsu_write_32((uintptr_t)(key_ctrl1), 0x00000003);
-        lsu_write_32((uintptr_t)(key_ctrl4), 0x00000001);
-        lsu_write_32((uintptr_t)(key_ctrl7), 0x00000003);
+        *key_ctrl1 = 0x00000003;
+        *key_ctrl4 = 0x00000001;
+        *key_ctrl7 = 0x00000003;
         //Set PCR lock bit
-        lsu_write_32((uintptr_t)(pcr_ctrl0), 0x00000001);
-        lsu_write_32((uintptr_t)(pcr_ctrl2), 0x00000001);
-        lsu_write_32((uintptr_t)(pcr_ctrl5), 0x00000001);
+        *pcr_ctrl0 = 0x00000001;
+        *pcr_ctrl2 = 0x00000001;
+        *pcr_ctrl5 = 0x00000001;
 
         //Issue fw update reset
         rst_count++;
-        lsu_write_32((uintptr_t)(soc_ifc_fw_update_reset), SOC_IFC_REG_INTERNAL_FW_UPDATE_RESET_CORE_RST_MASK);
+        *soc_ifc_fw_update_reset = SOC_IFC_REG_INTERNAL_FW_UPDATE_RESET_CORE_RST_MASK;
     }
     else {
         SEND_STDOUT_CTRL( 0xff);

@@ -16,31 +16,6 @@ limitations under the License.*_<BR>
 # **Release Notes** #
 _*Last Update: 2026/03/19*_
 
-### Rev 2.1.2 ###
-
-#### Rev 2.1.2 release date: 2026/03/19 ###
-- Caliptra IP Specification: see docs/ folder
-- Caliptra Integration Specification: see docs/ folder
-- Caliptra testplan: see docs/ folder
-- Bug fixes:
-  - [BUG FIX] [SECURITY HARDENING] KV write controls are not locked during kv write [#1215](https://github.com/chipsalliance/caliptra-rtl/issues/1215)
-  - [BUG FIX] [SECURITY HARDENING] KV error code is not captured mid-read [#1212](https://github.com/chipsalliance/caliptra-rtl/issues/1212)
-  - [BUG FIX] [SECURITY HARDENING] AES entropy interface could be re-seeded [#1223](https://github.com/chipsalliance/caliptra-rtl/issues/1223)
-  - [BUG FIX] [SECURITY HARDENING] ML-KEM key-vault msg isn't cleared on error [#264](https://github.com/chipsalliance/adams-bridge/issues/264) [#270](https://github.com/chipsalliance/adams-bridge/issues/270)
-  - [BUG FIX] [FUTURE USE MODEL] ML-KEM key-vault endianness [#262](https://github.com/chipsalliance/adams-bridge/issues/262) [#256](https://github.com/chipsalliance/adams-bridge/issues/256)
-  - [BUG FIX] mldsa stream mode msg buffer not zeroized [#261](https://github.com/chipsalliance/adams-bridge/issues/261)
-
-## Previous Releases ##
-
-### Rev 2.1.1 ###
-
-#### Rev 2.1.1 release date: 2025/11/17 ###
-- Caliptra IP Specification: see docs/ folder
-- Caliptra Integration Specification: see docs/ folder
-- Caliptra testplan: see docs/ folder
-- Bug fixes:
-  - [BUG FIX] Adams Bridge: issue [#1118](https://github.com/chipsalliance/caliptra-rtl/issues/1118)
-
 ### Rev 2.1 ###
 
 #### Rev 2.1 release date: 2025/10/12 ###
@@ -54,6 +29,7 @@ _*Last Update: 2026/03/19*_
 - Mailbox size reduced to 16KB in subsystem mode
 - Reviewed code for TODO/FIXME items; all feature/bug comments have been addressed, some TODO items remain as future beautification or optimizations
 
+## Previous Releases ##
 
 ### Rev 2.1-rc1 ###
 

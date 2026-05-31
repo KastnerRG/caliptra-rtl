@@ -2,7 +2,7 @@
 
 <p style="text-align: center;">Caliptra Hardware Specification</p>
 
-<p style="text-align: center;">Revision 2.1.2</p>
+<p style="text-align: center;">Revision 2.1</p>
 
 <div style="page-break-after: always"></div>
 
@@ -43,30 +43,33 @@ For information on the Caliptra Core, see the [High level architecture](https://
 * [SHA3](#sha3)
 * [ML-KEM](#adams-bridge-kyber-ml-kem)
 
+## Pre-release Features
+* [Key Vault Boot Flow Transition Enforcement](#key-vault-boot-flow-transition-enforcement) -- HW-enforced DICE key integrity monitoring and slot access control across boot phases
+
 
 ## Boot FSM
 
 The Boot FSM detects that the SoC is bringing Caliptra out of reset. Part of this flow involves signaling to the SoC that Caliptra is awake and ready for fuses. After fuses are populated and the SoC indicates that it is done downloading fuses, Caliptra can wake up the rest of the IP by de-asserting the internal reset.
 
-The following figure shows the initial power-on arc of the Mailbox Boot FSM.
+The following figure shows the state transitions and associated actions in Caliptra's boot state machine.
 
-*Figure 1: Mailbox Boot FSM state diagram*
+*Figure: Caliptra Boot FSM state diagram*
 
-![](./images/HW_mbox_boot_fsm.png)
+![](./images/Caliptra_boot_fsm.png)
 
 The Boot FSM first waits for the SoC to assert cptra\_pwrgood and de-assert cptra\_rst\_b. In the BOOT\_FUSE state, Caliptra signals to the SoC that it is ready for fuses. After the SoC is done writing fuses, it sets the fuse done register and the FSM advances to BOOT\_DONE.
 
-BOOT\_DONE enables Caliptra reset de-assertion through a two flip-flop synchronizer.
+Once in the BOOT\_DONE state, Caliptra de-asserts resets through a two flip-flop synchronizer.
 
-## FW update reset (Impactless FW update)
+### FW update reset (Impactless FW update)
 
-When a firmware update is initiated, Runtime FW writes to fw\_update\_reset register to trigger the FW update reset. When this register is written, only the RISC-V core is reset using cptra\_uc\_fw\_rst\_b pin and all AHB targets are still active. All registers within the targets and ICCM/DCCM memories are intact after the reset. Reset is deasserted synchronously after a programmable number of cycles; the minimum allowed number of wait cycles is 5, which is also the default configured value. Reset de-assertion is done through a two flip-flop synchronizer. Since ICCM is locked during runtime, the boot FSM unlocks it when the RISC-V reset is asserted. Following FW update reset deassertion, normal boot flow updates the ICCM with the new FW from the mailbox SRAM. The boot flow is modified as shown in the following figure.
-
-*Figure 2: Mailbox Boot FSM state diagram for FW update reset*
-
-![](./images/mbox_boot_fsm_FW_update_reset.png)
+When a firmware update is initiated, Runtime FW writes to fw\_update\_reset register to trigger the FW update reset. When this register is written, only the RISC-V core is reset using cptra\_uc\_rst\_b pin and all AHB targets are still active. All registers within the targets and ICCM/DCCM memories are intact after the reset. Reset is deasserted synchronously after a programmable number of cycles; the minimum allowed number of wait cycles is 5, which is also the default configured value. Reset de-assertion is done through a two flip-flop synchronizer. Since ICCM is locked during runtime, the boot FSM unlocks it when the RISC-V reset is asserted. Following FW update reset deassertion, normal boot flow updates the ICCM with the new FW from the mailbox SRAM.
 
 Impactless firmware updates may be initiated by writing to the fw\_update\_reset register after Caliptra comes out of global reset and enters the BOOT\_DONE state. In the BOOT\_FWRST state, only the reset to the RISC-V core is asserted and the wait timer is initialized. After the timer expires, the FSM advances from the BOOT\_WAIT to BOOT\_DONE state where the reset is deasserted and ICCM is unlocked.
+
+### Breakpoints for Debug
+
+Integrators may connect a breakpoint input to Caliptra, which is intended to connect to a chip GPIO pin. When asserted, this pin causes the Caliptra boot FSM to follow a modified arc. Instead of transitioning immediately to the BOOT_DONE state upon completion of fuse programming, the state machine transitions from BOOT_FUSE to BOOT_WAIT. Here, the state machine halts until the Caliptra register [CPTRA_BOOTFSM_GO](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.soc_ifc_reg.CPTRA_BOOTFSM_GO) is set, either by AXI or TAP access.
 
 ## RISC-V core
 
@@ -219,7 +222,7 @@ For more details regarding the register interface to control the WDT, see the [r
 
 The following figure shows the two timers.
 
-*Figure 3: Caliptra Watchdog Timer*
+*Figure: Caliptra Watchdog Timer*
 
 ![](./images/WDT.png)
 
@@ -352,7 +355,7 @@ The following applies to the clock gating feature:
 
 The following figure shows the timing information for clock gating.
 
-*Figure 10: Clock gating timing*
+*Figure: Clock gating timing*
 
 ![](./images/clock_gating_timing.png)
 
@@ -366,19 +369,19 @@ The block is instantiated based on a design parameter chosen at integration time
 
 The following figure shows the integrated TRNG block.
 
-*Figure 11: Integrated TRNG block*
+*Figure: Integrated TRNG block*
 
 ![](./images/integrated_TRNG.png)
 
 The following figure shows the CSRNG block.
 
-*Figure 12: CSRNG block*
+*Figure: CSRNG block*
 
 ![](./images/CSRNG_block.png)
 
 The following figure shows the entropy source block.
 
-*Figure 13: Entropy source block*
+*Figure: Entropy source block*
 
 ![](./images/entropy_source_block.png)
 
@@ -442,7 +445,7 @@ These are the top level signals defined in caliptra\_top.
 
 The following figure shows the top level signals defined in caliptra\_top.
 
-*Figure 14: caliptra\_top signals*
+*Figure: caliptra\_top signals*
 
 ![](./images/caliptra_top_signals.png)
 
@@ -463,7 +466,7 @@ The following table provides descriptions of the entropy source signals.
 
 The following figure shows the entropy source signals.
 
-*Figure 15: Entropy source signals*
+*Figure: Entropy source signals*
 
 ![](./images/entropy_source_signals.png)
 
@@ -624,7 +627,53 @@ Caliptra’s JTAG/TAP should be implemented as a TAP EP. JTAG is open if the deb
 
 Note: If the debug security state switches to debug mode anytime, the security assets and keys are still flushed even though JTAG is not open.
 
-*Figure 16: JTAG implementation*
+The following table details the alias addresses for registers in soc ifc that are accessible through JTAG.
+Debug Locked registers are a subset of registers accessible when debug intent is set, when debug is unlocked, or the lifecycle state is DEVICE_MANUFACTURING.
+Debug Unlocked registers are accessible when debug is unlocked, or the lifecycle state is DEVICE_MANUFACTURING.
+
+| Register Name                             | JTAG Address | Accessibility | Debug Locked | Debug Unlocked |
+|-------------------------------------------|--------------|---------------|--------------|----------------|
+| mbox_lock                                 | 7’h75        | RO            | YES          | YES            |
+| mbox_cmd                                  | 7’h76        | RW            | YES          | YES            |
+| mbox_dlen                                 | 7’h50        | RW            | YES          | YES            |
+| mbox_dataout                              | 7’h51        | RO            | YES          | YES            |
+| mbox_datain                               | 7’h62        | WO            | YES          | YES            |
+| mbox_status                               | 7’h52        | RW            | YES          | YES            |
+| mbox_execute                              | 7’h77        | WO            | YES          | YES            |
+| CPTRA_BOOT_STATUS                         | 7’h53        | RO            | YES          | YES            |
+| CPTRA_HW_ERRROR_ENC                       | 7’h54        | RO            | YES          | YES            |
+| CPTRA_FW_ERROR_ENC                        | 7’h55        | RO            | YES          | YES            |
+| SS_UDS_SEED_BASE_ADDR_L                   | 7’h56        | RO            |              | YES            |
+| SS_UDS_SEED_BASE_ADDR_H                   | 7’h57        | RO            |              | YES            |
+| CPTRA_HW_ERROR_FATAL                      | 7’h58        | RO            | YES          | YES            |
+| CPTRA_FW_ERROR_FATAL                      | 7’h59        | RO            | YES          | YES            |
+| CPTRA_HW_ERROR_NON_FATAL                  | 7’h5a        | RO            | YES          | YES            |
+| CPTRA_FW_ERROR_NON_FATAL                  | 7’h5b        | RO            | YES          | YES            |
+| CPTRA_DBG_MANUF_SERVICE_REG               | 7’h60        | RW            | YES          | YES            |
+| CPTRA_BOOTFSM_GO                          | 7’h61        | RW            | YES          | YES            |
+| SS_DEBUG_INTENT                           | 7’h63        | RW            |              | YES            |
+| SS_CALIPTRA_BASE_ADDR_L                   | 7’h64        | RW            |              | YES            |
+| SS_CALIPTRA_BASE_ADDR_H                   | 7’h65        | RW            |              | YES            |
+| SS_MCI_BASE_ADDR_L                        | 7’h66        | RW            |              | YES            |
+| SS_MCI_BASE_ADDR_H                        | 7’h67        | RW            |              | YES            |
+| SS_RECOVERY_IFC_BASE_ADDR_L               | 7’h68        | RW            |              | YES            |
+| SS_RECOVERY_IFC_BASE_ADDR_H               | 7’h69        | RW            |              | YES            |
+| SS_OTP_FC_BASE_ADDR_L                     | 7’h6A        | RW            |              | YES            |
+| SS_OTP_FC_BASE_ADDR_H                     | 7’h6B        | RW            |              | YES            |
+| SS_STRAP_GENERIC_0                        | 7’h6C        | RW            |              | YES            |
+| SS_STRAP_GENERIC_1                        | 7’h6D        | RW            |              | YES            |
+| SS_STRAP_GENERIC_2                        | 7’h6E        | RW            |              | YES            |
+| SS_STRAP_GENERIC_3                        | 7’h6F        | RW            |              | YES            |
+| SS_DBG_SERVICE_REG_REQ                    | 7’h70        | RW            | YES          | YES            |
+| SS_DBG_SERVICE_REG_RSP                    | 7’h71        | RO            | YES          | YES            |
+| SS_DBG_UNLOCK_LEVEL0                      | 7’h72        | RW            |              | YES            |
+| SS_DBG_UNLOCK_LEVEL1                      | 7’h73        | RW            |              | YES            |
+| SS_STRAP_CALIPTRA_DMA_AXI_USER            | 7’h74        | RW            |              | YES            |
+| SS_EXTERNAL_STAGING_AREA_BASE_ADDR_L      | 7’h78        | RW            |              | YES            |
+| SS_EXTERNAL_STAGING_AREA_BASE_ADDR_H      | 7’h79        | RW            |              | YES            |
+
+
+*Figure: JTAG implementation*
 
 ![](./images/JTAG_implementation.png)
 
@@ -646,7 +695,7 @@ The architecture of Caliptra cryptographic subsystem includes the following comp
 
 The high-level architecture of Caliptra cryptographic subsystem is shown in the following figure.
 
-*Figure 17: Caliptra cryptographic subsystem*
+*Figure: Caliptra cryptographic subsystem*
 
 ![](./images/Crypto-2p0.png)
 
@@ -671,7 +720,7 @@ The message should be padded before feeding to the hash core. The input message 
 
 The total size should be equal to 128 bits short of a multiple of 1024 since the goal is to have the formatted message size as a multiple of 1024 bits (N x 1024). The following figure shows the SHA512 input formatting.
 
-*Figure 18: SHA512 input formatting*
+*Figure: SHA512 input formatting*
 
 ![](./images/SHA512_input.png)
 
@@ -683,7 +732,7 @@ The SHA512 core performs 80 iterative operations to process the hash value of th
 
 The SHA512 architecture has the finite-state machine as shown in the following figure.
 
-*Figure 19: SHA512 FSM*
+*Figure: SHA512 FSM*
 
 ![](./images/SHA512_fsm.png)
 
@@ -706,13 +755,13 @@ The SHA512 architecture inputs and outputs are described in the following table.
 
 ### Address map
 
-The SHA512 address map is shown here: [sha512\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.sha512_reg)
+The SHA512 address map is shown here: [sha512\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.sha512_reg)
 
 ### Pseudocode
 
 The following pseudocode demonstrates how the SHA512 interface can be implemented.
 
-*Figure 20: SHA512 pseudocode*
+*Figure: SHA512 pseudocode*
 
 ![](./images/SHA512_pseudo.png)
 
@@ -790,7 +839,7 @@ The total size should be equal to 64 bits, short of a multiple of 512 because th
 
 The following figure shows SHA256 input formatting.
 
-*Figure 21: SHA256 input formatting*
+*Figure: SHA256 input formatting*
 
 ![](./images/SHA256_input.png)
 
@@ -802,7 +851,7 @@ The SHA256 core performs 64 iterative operations to process the hash value of th
 
 The SHA256 architecture has the finite-state machine as shown in the following figure.
 
-*Figure 22: SHA256 FSM*
+*Figure: SHA256 FSM*
 
 ![](./images/SHA256_fsm.png)
 
@@ -830,13 +879,13 @@ The SHA256 architecture inputs and outputs are described as follows.
 
 ### Address map
 
-The SHA256 address map is shown here: [sha256\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.sha256_reg).
+The SHA256 address map is shown here: [sha256\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.sha256_reg).
 
 ### Pseudocode
 
 The following pseudocode demonstrates how the SHA256 interface can be implemented.
 
-*Figure 23: SHA256 pseudocode*
+*Figure: SHA256 pseudocode*
 
 ![](./images/SHA256_pseudo.png)
 
@@ -1058,25 +1107,25 @@ The message should be padded before feeding to the HMAC core. Internally, the i\
 
 The total size should be equal to 128 bits, short of a multiple of 1024 because the goal is to have the formatted message size as a multiple of 1024 bits (N x 1024).
 
-*Figure 24: HMAC input formatting*
+*Figure: HMAC input formatting*
 
 ![](./images/HMAC_input.png)
 
 The following figures show examples of input formatting for different message lengths.
 
-*Figure 25: Message length of 1023 bits*
+*Figure: Message length of 1023 bits*
 
 ![](./images/msg_1023.png)
 
 When the message is 1023 bits long, padding is given in the next block along with message size.
 
-*Figure 26: 1 bit padding*
+*Figure: 1 bit padding*
 
 ![](./images/1_bit.png)
 
 When the message size is 895 bits, a padding of ‘1’ is also considered valid, followed by the message size.
 
-*Figure 27: Multi block message*
+*Figure: Multi block message*
 
 ![](./images/msg_multi_block.png)
 
@@ -1087,13 +1136,13 @@ Messages with a length greater than 1024 bits are broken down into N 1024-bit bl
 
 The HMAC512 core performs the sha2-512 function to process the hash value of the given message. The algorithm processes each block of the 1024 bits from the message, using the result from the previous block. This data flow is shown in the following figure.
 
-*Figure 28: HMAC-SHA-512-256 data flow*
+*Figure: HMAC-SHA-512-256 data flow*
 
 ![](./images/HMAC_SHA_512_256.png)
 
 The HMAC384 core performs the sha2-384 function to process the hash value of the given message. The algorithm processes each block of the 1024 bits from the message, using the result from the previous block. This data flow is shown in the following figure.
 
-*Figure 29: HMAC-SHA-384-192 data flow*
+*Figure: HMAC-SHA-384-192 data flow*
 
 ![](./images/HMAC_SHA_384_192.png)
 
@@ -1101,7 +1150,7 @@ The HMAC384 core performs the sha2-384 function to process the hash value of the
 
 The HMAC architecture has the finite-state machine as shown in the following figure.
 
-*Figure 30: HMAC FSM*
+*Figure: HMAC FSM*
 
 ![](./images/HMAC_FSM.png)
 
@@ -1132,13 +1181,13 @@ The HMAC architecture inputs and outputs are described in the following table.
 
 ### Address map
 
-The HMAC address map is shown here: [hmac\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.hmac_reg).
+The HMAC address map is shown here: [hmac\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.hmac_reg).
 
 ### Pseudocode
 
 The following pseudocode demonstrates how the HMAC interface can be implemented.
 
-*Figure 31: HMAC pseudocode*
+*Figure: HMAC pseudocode*
 
 ![](./images/HMAC_pseudo.png)
 
@@ -1260,7 +1309,7 @@ The hardware implementation also supports ECDH, 384 Bits (Prime Field), also kno
 
 Secp384r1 parameters are shown in the following figure.
 
-*Figure 32: Secp384r1 parameters*
+*Figure: Secp384r1 parameters*
 
 ![](./images/secp384r1_params.png)
 
@@ -1268,7 +1317,7 @@ Secp384r1 parameters are shown in the following figure.
 
 The ECDSA consists of three operations, shown in the following figure.
 
-*Figure 33: ECDSA operations*
+*Figure: ECDSA operations*
 
 ![](./images/ECDSA_ops.png)
 
@@ -1313,7 +1362,7 @@ In ECDH sharedkey generation, the shared key is generated by ECDH_sharedkey(priv
 
 The ECC top-level architecture is shown in the following figure.
 
-*Figure 34: ECC architecture*
+*Figure: ECC architecture*
 
 ![](./images/ECC_arch.png)
 
@@ -1344,7 +1393,7 @@ The ECC architecture inputs and outputs are described in the following table.
 
 ### Address map
 
-The ECC address map is shown here: [ecc\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.ecc_reg).
+The ECC address map is shown here: [ecc\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.ecc_reg).
 
 ### Pseudocode
 
@@ -1352,25 +1401,25 @@ The following pseudocode blocks demonstrate example implementations for KeyGen, 
 
 #### KeyGen
 
-*Figure 35: KeyGen pseudocode*
+*Figure: KeyGen pseudocode*
 
 ![](./images/keygen_pseudo.png)
 
 #### Signing
 
-*Figure 36: Signing pseudocode*
+*Figure: Signing pseudocode*
 
 ![](./images/signing_pseudo.png)
 
 #### Verifying
 
-*Figure 37: Verifying pseudocode*
+*Figure: Verifying pseudocode*
 
 ![](./images/verify_pseudo.png)
 
 #### ECDH sharedkey
 
-*Figure 38: ECDH sharedkey pseudocode*
+*Figure: ECDH sharedkey pseudocode*
 
 ![](./images/sharedkey_pseudo.png)
 
@@ -1436,7 +1485,7 @@ The state machine of HMAC\_DRBG utilization is shown in the following figure, in
 2. KEYGEN PRIVKEY: Running HMAC\_DRBG with seed and nonce to generate the privkey in KEYGEN operation.
 3. SIGNING NONCE: Running HMAC\_DRBG based on RFC6979 in SIGNING operation with privkey and hashed\_msg.
 
-*Figure 39: HMAC\_DRBG utilization*
+*Figure: HMAC\_DRBG utilization*
 
 ![](./images/HMAC_DRBG_util.png)
 
@@ -1452,7 +1501,7 @@ In SCA random generator state:
 
 The data flow of the HMAC\_DRBG operation in keygen operation mode is shown in the following figure.
 
-*Figure 40: HMAC\_DRBG data flow*
+*Figure: HMAC\_DRBG data flow*
 
 ![](./images/HMAC_DRBG_data.png)
 
@@ -1462,7 +1511,7 @@ Test vector leakage assessment (TVLA) provides a robust test using a 𝑡-test. 
 
 In practice, observing a t-value greater than a specific threshold (mainly 4.5) indicates the presence of leakage. However, in ECC, due to its latency, around 5 million samples are required to be captured. This latency leads to many false positives and the TVLA threshold can be considered a higher value than 4.5. Based on the following figure from “Side-Channel Analysis and Countermeasure Design for Implementation of Curve448 on Cortex-M4” by Bisheh-Niasar et. al., the threshold can be considered equal to 7 in our case.
 
-*Figure 41: TVLA threshold as a function of the number of samples per trace*
+*Figure: TVLA threshold as a function of the number of samples per trace*
 
 ![](./images/TVLA_threshold.png)
 
@@ -1472,7 +1521,7 @@ In practice, observing a t-value greater than a specific threshold (mainly 4.5) 
 The TVLA results for performing seed/nonce-dependent leakage detection using 200,000 traces is shown in the following figure. Based on this figure, there is no leakage in ECC keygen by changing the seed/nonce after 200,000 operations.
 
 
-*Figure 42: seed/nonce-dependent leakage detection using TVLA for ECC keygen after 200,000 traces*
+*Figure: seed/nonce-dependent leakage detection using TVLA for ECC keygen after 200,000 traces*
 
 ![](./images/tvla_keygen.png)
 
@@ -1480,13 +1529,13 @@ The TVLA results for performing seed/nonce-dependent leakage detection using 200
 
 The TVLA results for performing privkey-dependent leakage detection using 20,000 traces is shown in the following figure. Based on this figure, there is no leakage in ECC signing by changing the privkey after 20,000 operations.
 
-*Figure 43: privkey-dependent leakage detection using TVLA for ECC signing after 20,000 traces*
+*Figure: privkey-dependent leakage detection using TVLA for ECC signing after 20,000 traces*
 
 ![](./images/TVLA_privekey.png)
 
 The TVLA results for performing message-dependent leakage detection using 64,000 traces is shown in the following figure. Based on this figure, there is no leakage in ECC signing by changing the message after 64,000 operations.
 
-*Figure 44: Message-dependent leakage detection using TVLA for ECC signing after 64,000 traces*
+*Figure: Message-dependent leakage detection using TVLA for ECC signing after 64,000 traces*
 
 ![](./images/TVLA_msg_dependent.png)
 
@@ -1523,15 +1572,15 @@ In this architecture, the ECC interface and controller are implemented in hardwa
 
 LMS cryptography is a type of hash-based digital signature scheme that was standardized by NIST in 2020. It is based on the Leighton-Micali Signature (LMS) system, which uses a Merkle tree structure to combine many one-time signature (OTS) keys into a single public key. LMS cryptography is resistant to quantum attacks and can achieve a high level of security without relying on large integer mathematics.
 
-Caliptra supports only LMS verification using a software/hardware co-design approach. Hence, the LMS accelerator reuses the SHA256 engine to speedup the Winternitz chain by removing software-hardware interface overhead. The LMS-OTS verification algorithm is shown in follwoing figure:
+Caliptra supports only LMS verification using a software/hardware co-design approach. Hence, the LMS accelerator reuses the SHA256 engine to speedup the Winternitz chain by removing software-hardware interface overhead. The LMS-OTS verification algorithm is shown in following figure:
 
-*Figure 45: LMS-OTS Verification algorithm*
+*Figure: LMS-OTS Verification algorithm*
 
 ![](./images/LMS_verifying_alg.png)
 
 The high-level architecture of LMS is shown in the following figure.
 
-*Figure 46: LMS high-level architecture*
+*Figure: LMS high-level architecture*
 
 ![](./images/LMS_high_level.png)
 
@@ -1555,7 +1604,7 @@ LMS parameters are shown in the following table:
 
 The Winternitz hash chain can be accelerated in hardware to enhance the performance of the design. For that, a configurable architecture is proposed that can reuse SHA256 engine. The LMS accelerator architecture is shown in the following figure, while H is SHA256 engine.
 
-*Figure 47: Winternitz chain architecture*
+*Figure: Winternitz chain architecture*
 
 ![](./images/LMS_wntz_arch.png)
 
@@ -1582,23 +1631,21 @@ The LMS accelerator integrated into SHA256 architecture inputs and outputs are d
 
 ### Address map
 
-The address map for LMS accelerator integrated into SHA256 is shown here: [sha256\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.sha256_reg).
+The address map for LMS accelerator integrated into SHA256 is shown here: [sha256\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.sha256_reg).
 
 ## Adams Bridge - Dilithium (ML-DSA)
 
 Please refer to the [Adams-bridge specification](https://github.com/chipsalliance/adams-bridge/blob/main/docs/AdamsBridgeHardwareSpecification.md)
-Adams Bridge version registers are not up to date. See issue [#241](https://github.com/chipsalliance/adams-bridge/issues/241) for details.
 
 ### Address map
-Address map of ML-DSA accelerator is shown here:  [ML-DSA\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.abr_reg)
+Address map of ML-DSA accelerator is shown here:  [ML-DSA\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.abr_reg)
 
 ## Adams Bridge Kyber ML-KEM
 
 Please refer to the [Adams-bridge specification](https://github.com/chipsalliance/adams-bridge/blob/main/docs/AdamsBridgeHardwareSpecification.md)
-Adams Bridge version registers are not up to date. See issue [#241](https://github.com/chipsalliance/adams-bridge/issues/241) for details.
 
 ### Address map
-Address map of ML-KEM accelerator is shown here:  [ML-KEM\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.abr_reg)
+Address map of ML-KEM accelerator is shown here:  [ML-KEM\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.abr_reg)
 
 ## AES
 
@@ -1651,7 +1698,7 @@ The AES architecture inputs and outputs are described in the following table.
 
 ### Address map
 
-The AES address map is shown here: [aes\_clp\_reg — clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.aes_clp_reg).
+The AES address map is shown here: [aes\_clp\_reg -- clp Reference (chipsalliance.github.io)](https://chipsalliance.github.io/caliptra-rtl/main/internal-regs/?p=clp.aes_clp_reg).
 
 ### SCA countermeasures
 
@@ -1944,19 +1991,19 @@ Notes:
 To underpin the results of the formal verification flow, the hardening of the GHASH module has been analyzed on the ChipWhisperer [CW310](https://rtfm.newae.com/Targets/CW310%20Bergen%20Board/) FPGA board.
 For this analysis, power traces with the ChipWhisperer [Husky](https://rtfm.newae.com/Capture/ChipWhisperer-Husky/) scope were captured during GCM operations.
 Afterwards a Test Vector Leakage Assessment (TVLA) with the [ot-sca toolset](https://github.com/lowRISC/ot-sca) has been performed.
-The setup is illustrated in Figure 1.
+The setup is illustrated in the following Figure.
 
 ![](./images/cw310_cwhusky.jpeg)
 :--:
-**Figure 1**: Target CW310 FPGA board (left) and the CW Husky scope (right).
+**Figure**: Target CW310 FPGA board (left) and the CW Husky scope (right).
 
 ##### Setup
 
 ![](./images/GHASH_TVLA_Figure2.png)
 :--:
-**Figure 2**: Measurement setup. The main components are the target board, the scope, and the SCA framework.
+**Figure**: Measurement setup. The main components are the target board, the scope, and the SCA framework.
 
-Figure 2 gives a detailed overview of the measurement setup that has been utilized to capture the power traces.
+The prior Figure gives a detailed overview of the measurement setup that has been utilized to capture the power traces.
 The SCA evaluation framework ot-sca is the central component of the measurement setup.
 It is responsible for communicating with the penetration testing framework that runs on the target FPGA board and with the scope.
 Initially, ot-sca configures the scope (sample rate, number of samples) and the pentest framework (which input, how many encryptions, where to trigger).
@@ -1968,9 +2015,9 @@ The ot-sca framework stores the trace as well as the cipher configuration in a d
 
 ![](./images/GHASH_TVLA_Figure3.png)
 :--:
-**Figure 3**: Power trace with AES encryption rounds visible (*left*). Aligned traces when zooming in (*right*).
+**Figure**: Power trace with AES encryption rounds visible (*left*). Aligned traces when zooming in (*right*).
 
-Figure 3 depicts power traces captured during AES-GCM encryptions with the setup above.
+The prior Figure depicts power traces captured during AES-GCM encryptions with the setup above.
 As shown in the figure, the traces are nicely aligned, allowing to perform a sound evaluation.
 
 ##### Methodology
@@ -1982,9 +2029,9 @@ However, note that this test cannot provide any information whether the leakage 
 
 ![](./images/GHASH_TVLA_Figure4.png)
 :--
-**Figure 4:** TVLA plot showing leakage at around sample 1000. When increasing the number of traces (from 1000 to 10000), the leakage becomes more present. Note that the traces shown in this plot are taken from an arbitrary cryptographic hardware block and not AES.
+**Figure:** TVLA plot showing leakage at around sample 1000. When increasing the number of traces (from 1000 to 10000), the leakage becomes more present. Note that the traces shown in this plot are taken from an arbitrary cryptographic hardware block and not AES.
 
-Figure 4 shows a TVLA plot that will be used throughout this document. The red lines mark the ± *t*-test border.
+The prior Figure shows a TVLA plot that will be used throughout this document. The red lines mark the ± *t*-test border.
 
 ###### Dataset Generation for FvsR IV & Key
 
@@ -2023,24 +2070,24 @@ We start with the results for the FvsR IV & Key datasets.
 
 ![](./images/GHASH_TVLA_Figure5.png)
 :--:
-**Figure 5:** AES-GCM block diagram. Red lines mark the trigger windows for each analysis step.
+**Figure:** AES-GCM block diagram. Red lines mark the trigger windows for each analysis step.
 
-As shown in Figure 5, we focus on analyzing (*i*) the generation of the hash subkey H, (*ii*) the encryption of the initial counter block S, (*iii*) the processing of the AAD blocks, (*iv*) the plaintext blocks, and (*v*) the tag generation. Each measurement is conducted with (*a*) masks off and (*b*) masks on to analyze the effectiveness of the masking countermeasure.
+As shown in the prior Figure, we focus on analyzing (*i*) the generation of the hash subkey H, (*ii*) the encryption of the initial counter block S, (*iii*) the processing of the AAD blocks, (*iv*) the plaintext blocks, and (*v*) the tag generation. Each measurement is conducted with (*a*) masks off and (*b*) masks on to analyze the effectiveness of the masking countermeasure.
 
 ###### i) SCA Evaluation of Generating the Hash Subkey H
 
 ![](./images/GHASH_TVLA_Figure6ab.png)
 :--:
-| **Figure 6a:** Masking Off - 100k traces - **Figure 6b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 100k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
-The AES encryption is clearly visible in the form of 12 distinct peaks in the power traces shown Figures 6a and 6b.
+The AES encryption is clearly visible in the form of 12 distinct peaks in the power traces shown in the prior set of Figures.
 The 12 peaks correspond to first the loading of the key and the all-zero block into the AES cipher core, followed by the initial round and the 10 full AES rounds (AES-128).
 They spread over approximately 470 samples which corresponds to the 56 target clock cycles a full AES-128 encryption takes.
 
-If the masking is turned off (Figure 6a), first and second-order leakage is clearly visible throughout the operation.
-If the masking is on (Figure 6b), there is first-order leakage 1) at the beginning as well as 2) at the end of the operation.
+If the masking is turned off (set of graphs), first and second-order leakage is clearly visible throughout the operation.
+If the masking is on (set of graphs), there is first-order leakage 1) at the beginning as well as 2) at the end of the operation.
 
 1. The leakage at the beginning of the operation is due to incrementing the IV/CTR value (inc32 function in GCM spec) which spreads across the first two AES rounds.
    This produces first-order leakage as the inc32 function implementation isn’t masked.
@@ -2050,24 +2097,24 @@ If the masking is on (Figure 6b), there is first-order leakage 1) at the beginni
    The leakage is most likely due to how the FPGA implementation tool maps the flip flops of the hash subkey register shares to the available FPGA logic slices: if flip flops of the different shares get mapped to the same logic slice, the carry-chain and other muxing logic present in the logic slice can combine the various inputs thereby causing SCA leakage despite these logic outputs not being used.
    We’ve observed similar effects in the past and there is [research giving more insight into this and other FPGA-specific issues](https://ieeexplore.ieee.org/document/10545383).
 
-To summarize, the observed first-order leakage if masking is on (Figure 6b) is not of concern for ASIC implementations.
+To summarize, the observed first-order leakage if masking is on is not of concern for ASIC implementations.
 
 ###### ii) SCA Evaluation of Encrypting the Initial Counter Block
 
 ![](./images/GHASH_TVLA_Figure7ab.png)
 :--:
-| **Figure 7a:** Masking Off - 100k traces - **Figure 7b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 100k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
-Again, the AES encryption is clearly visible in the form of 12 peaks in the power traces shown Figures 7a and 7b.
+Again, the AES encryption is clearly visible in the form of 12 peaks in the power traces shown in the prior set of Figures.
 This AES encryption corresponds to the generation of the encrypted initial counter block S.
 The AES encryption is followed by another operation visible in the power trace: the computation of repeatedly used correction terms using the Galois-field multipliers inside GHASH.
 This operation takes 33 target clock cycles (approximately 275 samples).
 
-If the masking is turned off (Figure 7a), first and second-order leakage is clearly visible throughout both operations while being more pronounced during the GHASH operation.
+If the masking is turned off (set of graphs), first and second-order leakage is clearly visible throughout both operations while being more pronounced during the GHASH operation.
 This is because the GHASH block is smaller and thus produces less noise.
-If the masking is on (Figure 7b), there is first-order leakage 1) at the beginning as well as 2) between the two operations.
+If the masking is on (set of graphs), there is first-order leakage 1) at the beginning as well as 2) between the two operations.
 
 1. As before, the leakage at the beginning of the operation is due to incrementing the IV/CTR value (inc32 function in GCM spec) which spreads across the first two AES rounds.
    This produces first-order leakage as the inc32 function implementation isn’t masked.
@@ -2077,7 +2124,7 @@ If the masking is on (Figure 7b), there is first-order leakage 1) at the beginni
    As before, the leakage is most likely due to how the FPGA implementation tool maps the multiplexers in front of the GHASH state registers to the available FPGA logic slices: Since the multiplexers for both shares use the same control signals, the multiplexing logic can be combined even into the same look-up tables (LUTs) thereby causing SCA leakage.
    We’ve observed similar effects in the past and there is [research giving more insight into this and other FPGA-specific issues](https://ieeexplore.ieee.org/document/10545383).
 
-To summarize, the observed first-order leakage if masking is on (FIgure 7b) is not of concern for ASIC implementations.
+To summarize, the observed first-order leakage if masking is on is not of concern for ASIC implementations.
 
 ###### iii) SCA Evaluation of Processing the AAD Blocks
 
@@ -2085,28 +2132,28 @@ To summarize, the observed first-order leakage if masking is on (FIgure 7b) is n
 
 ![](./images/GHASH_TVLA_Figure8ab.png)
 :--:
-| **Figure 8a:** Masking Off - 50k traces - **Figure 8b:** Masking On - 10M traces |
+| **Figure:** Masking Off - 50k traces - **Figure:** Masking On - 10M traces |
 
 ###### Interpretation
 
 For AAD blocks, the AES cipher core is not involved.
 However, during the computation of the first AAD block, the GHASH block needs to compute an additional correction term which is used for the very first block only.
-If the masking is turned off (Figure 8a), first- and second-order leakage is clearly visible but only for the first activity block.
+If the masking is turned off (first set of graphs), first- and second-order leakage is clearly visible but only for the first activity block.
 The second activity block involves computing the additional correction terms which requires Share 1 of the encrypted initial counter block to be multiplied by Share 1 of the hash subkey.
 But since the masking is off, both these values are zero for both the fixed and the random set and hence there is no SCA leakage.
-If the masking is turned on (Figure 8b), no SCA leakage is observable which is desirable.
+If the masking is turned on (second set of graphs), no SCA leakage is observable which is desirable.
 
 ###### Processing AAD Block 1
 
 ![](./images/GHASH_TVLA_Figure9ab.png)
 :--:
-| **Figure 9a:** Masking Off - 50k traces - **Figure 9b:** Masking On - 10M traces |
+| **Figure:** Masking Off - 50k traces - **Figure:** Masking On - 10M traces |
 
 ###### Interpretation
 
 For the second AAD block (and any subsequent AAD blocks) there is only one activity block corresponding to the Galois-field multiplication.
-If masking is turned off (Figure 9a), there is both first- and second-order leakage observable.
-If the masking is turned on (Figure 9b), no SCA leakage is observable which is desirable.
+If masking is turned off (first set of graphs), there is both first- and second-order leakage observable.
+If the masking is turned on (second set of graphs), no SCA leakage is observable which is desirable.
 
 ###### iv) SCA Evaluation of Processing the PTX Blocks
 
@@ -2114,11 +2161,11 @@ If the masking is turned on (Figure 9b), no SCA leakage is observable which is d
 
 ![](./images/GHASH_TVLA_Figure10ab.png)
 :--:
-| **Figure 10a:** Masking Off - 50k traces - **Figure 10b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 50k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
-Like in [ii) SCA Evaluation of Encrypting the Initial Counter Block](#ii-sca-evaluation-of-encrypting-the-initial-counter-block) there is first-order leakage 1) at the beginning and 2) between the two operations if the masking is turned on (Figure 10b).
+Like in [ii) SCA Evaluation of Encrypting the Initial Counter Block](#ii-sca-evaluation-of-encrypting-the-initial-counter-block) there is first-order leakage 1) at the beginning and 2) between the two operations if the masking is turned on (first set of graphs).
 
 1. As before, the leakage at the beginning of the operation is due to incrementing the IV/CTR value (inc32 function in GCM spec) which spreads across the first two AES rounds.
    This produces first-order leakage as the inc32 function implementation isn’t masked.
@@ -2128,13 +2175,13 @@ Like in [ii) SCA Evaluation of Encrypting the Initial Counter Block](#ii-sca-eva
    But since the AAD and the plaintext have been chosen to be the same for all traces in the fixed and the random sets, the traces of the fixed set only produce all the same ciphertext and thus are expected to exhibit a static power signature for this step, whereas the ciphertext of the random set is randomized through the random key and IV.
    However, since the ciphertext is not secret in the context of GCM, this leakage is of no concern.
 
-To summarize, the observed first-order leakage if masking is on (FIgure 10b) is not of concern.
+To summarize, the observed first-order leakage if masking is on (second set of graphs) is not of concern.
 
 ###### Processing PTX Block 1
 
 ![](./images/GHASH_TVLA_Figure11ab.png)
 :--:
-| **Figure 11a:** Masking Off - 50k traces - **Figure 11b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 50k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
@@ -2145,7 +2192,7 @@ For the same reasons as before, this leakage is not of concern.
 
 ![](./images/GHASH_TVLA_Figure12ab.png)
 :--:
-| **Figure 12a:** Masking Off - 50k traces - **Figure 12b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 50k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
@@ -2154,12 +2201,12 @@ The generation of the final authentication tag consists of two operations.
    The GHASH state is unmasked (still masked with the encrypted initial counter block S) and Share 1 of S is added to write the final authentication tag to the data output registers readable by software.
 2) In parallel to writing the final authentication tag to the data output registers, the internal state is all cleared to random values and an additional multiplication is triggered to clear the internal state of the Galois-field multipliers and the correction term registers.
 
-If masking is turned off (Figure 12a), there is both first- and second-order leakage observable during the first activity block (tag generation) but not during the clearing operation.
-If the masking is turned on (Figure 12b), some SCA leakage is observable between the two operations, i.e., when the final authentication tag is written to the output data registers.
+If masking is turned off (first set of graphs), there is both first- and second-order leakage observable during the first activity block (tag generation) but not during the clearing operation.
+If the masking is turned on (second set of graphs), some SCA leakage is observable between the two operations, i.e., when the final authentication tag is written to the output data registers.
 This leakage is expected as both the fixed and the random data sets use a static AAD and plaintext.
 This means, the tag for the fixed data set is fixed whereas the tags for the random set get randomized through the ciphertext (random due to the random key and IV).
 
-To summarize, the observed first-order leakage if masking is on (FIgure 12b) is not of concern.
+To summarize, the observed first-order leakage if masking is on (second set of graphs) is not of concern.
 
 ##### Results – FvsR PTX & AAD
 
@@ -2170,41 +2217,41 @@ These experiments were specifically done to investigate leakage peaks identified
 
 ![](./images/GHASH_TVLA_Figure13ab.png)
 :--:
-| **Figure 13a:** Masking Off - 50k traces - **Figure 13b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 50k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
-There is no SCA leakage visible in both cases without masking (Figure 13a) and with masking turned on (Figure 13b).
+There is no SCA leakage visible in both cases without masking (first set of graphs) and with masking turned on (second set of graphs).
 This is expected as the hash subkey generation doesn’t involve the plaintext and the AAD but only the key and IV.
 Both the fixed and random set use the same static key and IV.
 
-This experiment was specifically done to check whether the leakage identified in Figure 6b and attributed to how the FPGA implementation tool maps the flip flops of the hash subkey register shares to the available FPGA logic slices.
+This experiment was specifically done to check whether the leakage identified in [i) SCA Evaluation of Generating the Hash Subkey H](#i-SCA-Evaluation-of-Generating-the-Hash-Subkey-H) and attributed to how the FPGA implementation tool maps the flip flops of the hash subkey register shares to the available FPGA logic slices.
 As expected, the leakage peak is now gone.
 
 ###### ii) SCA Evaluation of Encrypting the Initial Counter Block
 
 ![](./images/GHASH_TVLA_Figure14ab.png)
 :--:
-| **Figure 14a:** Masking Off - 50k traces - **Figure 14b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 50k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
-There is no SCA leakage visible in both cases without masking (Figure 14a) and with masking turned on (Figure 14b).
+There is no SCA leakage visible in both cases without masking (first set of graphs) and with masking turned on (second set of graphs).
 This is expected as the encryption of the initial counter block and the subsequent computation of repeatedly used correction terms doesn’t involve the plaintext and the AAD but only the key and IV.
 Both the fixed and random set use the same static key and IV.
 
-This experiment was specifically done to check whether the leakage identified in Figure 7b and attributed to how the FPGA implementation tool maps the multiplexers in front of the GHASH state registers to the available FPGA logic slices.
+This experiment was specifically done to check whether the leakage identified in [ii) SCA Evaluation of Encrypting the Initial Counter Block](#ii-SCA-Evaluation-of-Encrypting-the-Initial-Counter-Block) and attributed to how the FPGA implementation tool maps the multiplexers in front of the GHASH state registers to the available FPGA logic slices.
 As expected, the leakage peak is now gone.
 
 ###### iv) SCA Evaluation of Processing the PTX Block 0
 
 ![](./images/GHASH_TVLA_Figure15ab.png)
 :--:
-| **Figure 15a:** Masking Off - 100k traces - **Figure 15b:** Masking On - 1M traces |
+| **Figure:** Masking Off - 100k traces - **Figure:** Masking On - 1M traces |
 
 ###### Interpretation
 
-With the masking turned off (Figure 15a), there is first-order leakage 1) at the beginning of the operation and 2) throughout the entire GHASH operation.
+With the masking turned off (first set of graphs), there is first-order leakage 1) at the beginning of the operation and 2) throughout the entire GHASH operation.
 
 1. The leakage at the beginning of the operation is due to the input data (the plaintext) being written to an internal buffer register.
    The AES cipher is operated in counter mode, meaning it doesn’t encrypt the input data but the counter value (incremented IV).
@@ -2213,7 +2260,7 @@ With the masking turned off (Figure 15a), there is first-order leakage 1) at the
 2. The GHASH operation then processes this ciphertext.
    The observed leakage when the masking is off is expected.
 
-With the masking turned on (Figure 15b), the first-order leakage at the beginning of the operation remains visible. The reason for this is that the internal register buffering the previous input data is not masked.
+With the masking turned on (second set of graphs), the first-order leakage at the beginning of the operation remains visible. The reason for this is that the internal register buffering the previous input data is not masked.
 This is of no concern as the leakage is not related to key or IV.
 
 Another first-order leakage peak is visible between the AES encryption and the GHASH operation.
@@ -2482,10 +2529,10 @@ The KV write client has a configurable parameter, `KV_WRITE_SWAP_DWORDS`, that c
 | :----- | :---------------- | :-------------------- | :----------------------- | :---- |
 | HMAC-512 | Big-endian | 1 (default) | Sequential: BLOCK\[d\] = KV\[d\], KEY\[d\] = KV\[d\] | Block read supports PAD and HMAC auto-padding. |
 | SHA-512 | Big-endian | 1 (default) | Sequential: BLOCK\[d\] = KV\[d\] | Block read supports PAD. |
-| ECC (P-384) | Big-endian | 1 (default) | Sequential: PRIVKEY\[d\] = KV\[d\], SEED\[d\] = KV\[d\] | — |
+| ECC (P-384) | Big-endian | 1 (default) | Sequential: PRIVKEY\[d\] = KV\[d\], SEED\[d\] = KV\[d\] | -- |
 | AES | Little-endian | 0 | Byte swap per DWORD: key\_reg\[d\]\[b\] = KV\_data\[3−b\] | CTRL0.ENDIAN\_SWAP optionally swaps bytes in FW DATA\_IN/DATA\_OUT registers. |
 | ML-KEM | Little-endian | 0 | DWORD-reversed: SEED\_D\[d\] = KV\[N−1−d\], SEED\_Z\[i\] = KV\[2N−1−i\] | Shared key undergoes DWORD reversal in the ABR controller before the write client. |
-| ML-DSA | Little-endian | N/A (no KV write) | DWORD-reversed: SEED\[d\] = KV\[N−1−d\] | — |
+| ML-DSA | Little-endian | N/A (no KV write) | DWORD-reversed: SEED\[d\] = KV\[N−1−d\] | -- |
 
 **Write path:** HMAC, SHA-512, and ECC produce results with the most-significant DWORD at the highest internal index; the write client reversal (SWAP\_DWORDS=1) places the most-significant DWORD at KV\[0\]. AES stores its 128-bit (4 DWORD) output sequentially. The ML-KEM shared key is pre-reversed in the ABR controller (`mlkem_sharedkey_data[d] = shared_key[SHAREDKEY_NUM_DWORDS-1-d]`), producing the same KV layout as the big-endian engines despite using SWAP\_DWORDS=0.
 
@@ -2552,6 +2599,230 @@ The following tables describe DOE register and control fields.
 5. State machine resets the appropriate RUN bit when the de-obfuscated key is written to KV. FW can poll this register to know when the flow is complete.
 6. The clear obf secrets command flushes the obfuscation key, the obfuscated UDS, and the field entropy from the internal flops. This should be done by ROM after both de-obfuscation flows are complete.
 
+## Key vault boot flow transition enforcement
+
+The Key Vault Boot Flow Transition Enforcement feature provides hardware-enforced integrity monitoring and access control for DICE key derivation across boot phase transitions (ROM->FMC->RT). It detects ICCM code execution transitions, validates key vault state at each boundary, and atomically applies lock/clear enforcement to key slots.
+
+### Overview
+
+The feature consists of three cooperating blocks:
+
+1. **Boot Flow Monitor** (in `caliptra_top`): Detects ROM->FMC and FMC->RT transitions by observing ICCM memory bank read enables against programmed address regions.
+2. **KV Monitor** (in `kv`): Validates dest_valid permissions and crypto write counts on DICE key slots at each transition boundary.
+3. **KV Enforcement** (in `kv`): Atomically applies lock_wr, lock_use, and slot clearing at each transition.
+
+### Boot flow monitor
+
+The boot flow monitor detects firmware execution phase transitions by spying the ICCM memory interface. It compares bank-level read addresses against programmed FMC and RT region boundaries.
+
+#### ICCM region registers
+
+Four shadow-hardened registers define the FMC and RT code regions within ICCM address space:
+
+| Register | Address | Description |
+| :------- | :------ | :---------- |
+| INTERNAL_ICCM_FMC_START_ADDR | 0x30030650 | Start address of FMC region (18-bit ICCM-relative) |
+| INTERNAL_ICCM_FMC_END_ADDR | 0x30030654 | End address of FMC region (inclusive) |
+| INTERNAL_ICCM_RT_START_ADDR | 0x30030658 | Start address of RT region (18-bit ICCM-relative) |
+| INTERNAL_ICCM_RT_END_ADDR | 0x3003065C | End address of RT region (inclusive) |
+| INTERNAL_ICCM_REGION_LOCK | 0x30030660 | W1S lock -- once set, address registers cannot be modified until reset |
+
+These registers use the `caliptra_prim_subreg_shadow` primitive for glitch hardening:
+- **2-phase write protocol**: Each register must be written twice with the same value to commit. A single write updates only the shadow copy; the second matching write commits to the primary register.
+- **Phase-clear-on-read**: A read operation resets the write phase to 0, preventing stale partial writes from persisting.
+- **Error lockout**: If the shadow and committed copies diverge (storage fault), all further writes are blocked until reset.
+- **Error reporting**: Storage faults assert `CPTRA_HW_ERROR_FATAL.shadow_storage_err[5]`. Phase-1/phase-0 mismatches assert `CPTRA_HW_ERROR_NON_FATAL.shadow_update_err[3]`.
+
+The effective lock for the boot flow monitor is `iccm_region_lock & iccm_all_shadows_committed` -- both the lock register must be set AND all four address registers must have completed their 2-phase writes.
+
+#### Transition detection
+
+The monitor uses MuBi4-encoded signals for glitch resistance:
+
+| Signal | Encoding | Meaning |
+| :----- | :------- | :------ |
+| `boot_flow_fmc` | MuBi4True/False | CPU has begun executing from the FMC region |
+| `boot_flow_rt` | MuBi4True/False | CPU has begun executing from the RT region |
+| `boot_flow_error` | MuBi4True/False | Fatal error detected in boot flow |
+
+Transitions are one-way: once `boot_flow_fmc` becomes True, it remains True until reset. The monitor fires on the first ICCM read within the FMC region (after effective lock is set), and similarly for RT.
+
+#### Error conditions
+
+`boot_flow_error` is asserted (fatal) when any of the following occur:
+- ICCM fetch while region lock is not set or shadow registers are not committed
+- RT region fetch while `boot_flow_fmc` is False (illegal ROM->RT jump -- the RT transition is gated on FMC, so this fires the error without producing a transient `boot_flow_rt` pulse)
+- ICCM fetch outside both the FMC and RT programmed regions after region lock is set (out-of-range execution)
+- Any boot flow MuBi4 signal enters an invalid (non-True, non-False) encoding state
+
+#### Simulation support
+
+In simulation, `boot_flow_monitor_en` defaults to 0 (disabled). The testbench overrides this signal with a `force` when testing the feature. In hardware, the monitor is enabled when `debug_locked` is asserted AND `scan_mode` is deasserted. The monitor is disabled when debug is unlocked (to allow JTAG ICCM access and fake-ROM flows) and during scan mode (to prevent false transitions from clock-override activity on the ICCM banks).
+
+### KV monitor
+
+At each boot phase transition, the KV monitor validates that the expected DICE key slots are correctly populated. The monitor checks **only DICE derivation key slots** (0–9) — optional feature keys (Stable Owner Key, OCP Lock keys) are excluded from monitoring because they are conditionally derived and do not participate in the DICE trust chain. A mismatch triggers `kv_monitor_alert`, which escalates to `CPTRA_HW_ERROR_FATAL.kv_error[4]` and flushes all key entries.
+
+#### ROM->FMC checks (on `enter_fmc`)
+
+| Slot | Name | Expected dest_valid |
+| :--- | :--- | :------------------ |
+| 0 | SI_IDEV | AES_KEY |
+| 1 | SI_LDEV | AES_KEY |
+| 2 | KEY_LADDER | HMAC_KEY |
+| 6 | FMC_CDI | HMAC_KEY \| MLDSA_SEED \| ECC_SEED |
+| 7 | FMC_ECDSA | ECC_PKEY |
+| 8 | FMC_MLDSA | MLDSA_SEED |
+
+Additionally, per-slot crypto write counters verify minimum expected derivation counts:
+- Slot 6 (FMC_CDI): >= 4 writes (IDevID CDI + LDevID intermediate + LDevID CDI + FMC Alias CDI)
+- Slot 7 (FMC_ECDSA): >= 2 writes (IDevID ECC keygen + FMC Alias ECC keygen)
+- Slot 8 (FMC_MLDSA): >= 2 writes (IDevID MLDSA keygen + FMC Alias MLDSA keygen)
+
+Write counters are 3-bit saturating counters that reset only on hard reset (`cptra_pwrgood`), persisting across warm and FW update resets.
+
+#### FMC->RT checks (on `enter_rt`)
+
+| Slot | Name | Expected dest_valid |
+| :--- | :--- | :------------------ |
+| 4 | RT_CDI | HMAC_KEY \| MLDSA_SEED \| ECC_SEED |
+| 5 | RT_ECDSA | ECC_PKEY |
+| 9 | RT_MLDSA | MLDSA_SEED |
+
+### KV enforcement
+
+Enforcement is applied continuously based on the current boot phase and atomically at transitions.
+
+#### Lock enforcement (continuous)
+
+| Condition | Slots affected | Action |
+| :-------- | :------------- | :----- |
+| `boot_flow_fmc` = True | 0, 1, 2, 6, 7, 8 | `lock_wr` asserted via hwset (HW-driven, cannot be cleared by SW) |
+| `boot_flow_rt` = True | 4, 5, 9 | `lock_wr` asserted via hwset |
+| `boot_flow_rt` = True | 6, 7, 8 | `lock_use` asserted via hwset (FMC keys cannot be used in RT) |
+
+The `lock_wr` and `lock_use` fields have `hwset` property in the register definition, allowing hardware to set them without firmware intervention. Once set, they can only be cleared by `core_only_rst_b` de-assertion.
+
+#### Slot clearing (atomic, on transition edge)
+
+**DICE slots** — unconditionally cleared or preserved at each transition:
+
+| Slot | Purpose | ROM→FMC | FMC→RT |
+| :--- | :------ | :------ | :----- |
+| 0 | SI_IDEV | Preserved | Preserved |
+| 1 | SI_LDEV | Preserved | Preserved |
+| 2 | KEY_LADDER | Preserved | Preserved |
+| 3 | TMP | Cleared | Cleared |
+| 4 | RT_CDI | Cleared | Preserved |
+| 5 | RT_ECDSA | Cleared | Preserved |
+| 6 | FMC_CDI | Preserved | Preserved |
+| 7 | FMC_ECDSA | Preserved | Preserved |
+| 8 | FMC_MLDSA | Preserved | Preserved |
+| 9 | RT_MLDSA | Cleared | Preserved |
+| 10–14 | Unused | Cleared | Cleared |
+
+**Conditionally-preserved slots** — behavior depends on active mode:
+
+| Slot | Purpose | Default (no optional features) | `stable_owner_key_en` | `ocp_lock_mode_en` |
+| :--- | :------ | :----------------------------- | :-------------------- | :----------------- |
+| 15 | Stable Owner Key | Cleared | Preserved | Cleared (mutually exclusive) |
+| 16 | MDK | Cleared | Cleared | Preserved |
+| 17–21 | Unused OCP range | Cleared | Cleared | Cleared |
+| 22 | HEK seed | Cleared | Cleared | Preserved |
+| 23 | MEK | Cleared | Cleared | **Always cleared** (DMA-accessible) |
+
+Clearing destroys the key data and resets `dest_valid` and `last_dword` for the affected slots.
+
+#### Conditional slot preservation
+
+Two optional Caliptra features populate KV slots that must survive boot transitions when the feature is active, but must be cleared when inactive. These slots are **not monitored** (no dest_valid checks, no write counters) — the monitor is exclusively for DICE keys. Only the enforcement block (slot clearing) handles them conditionally.
+
+**Stable Owner Key (Slot 15)**
+
+The Stable Owner Root Key is conditionally derived by ROM when all three conditions are met:
+
+- `SUBSYSTEM_MODE_en` = 1 (Caliptra operating in subsystem mode)
+- `OCP_LOCK_MODE_en` = 0 (OCP Lock feature is not active)
+- `SS_STRAP_GENERIC[3][0]` = 1 (SoC strap enabling the stable owner key feature)
+
+The combined signal `stable_owner_key_en` is computed in `soc_ifc_top` and routed to the Key Vault. When active, slot 15 is excluded from `boot_flow_key_clear` at both ROM-to-FMC and FMC-to-RT transitions. When inactive, slot 15 is cleared normally.
+
+**OCP Lock Keys (Slots 16 and 22)**
+
+When OCP Lock mode is enabled (`ocp_lock_mode_en` = 1 from the `ss_ocp_lock_en` strap), DOE populates slot 16 (MDK) and slot 22 (HEK seed) before ROM runs. FMC and RT firmware require these keys for EPK, VEK, and MEK derivation in OCP Lock flows.
+
+When `ocp_lock_mode_en` is active, slots 16 and 22 are excluded from clearing at both transitions. When inactive, they are cleared normally.
+
+**Slot 23 (MEK) is always cleared** regardless of `ocp_lock_mode_en`. MEK has `DMA_DATA` in its `dest_valid` (it is DMA-accessible for key release), making it a security risk if it persists across transitions. RT firmware re-derives MEK when needed during OCP Lock key release flows.
+
+Only the specific slots that ROM or FMC actually derive (16 and 22) are preserved — not the entire OCP Lock range (16–23). Slots 17–21 and 23 are always cleared.
+
+**Mutual exclusion**: Stable Owner Key and OCP Lock are mutually exclusive by construction — `stable_owner_key_en` includes `~OCP_LOCK_MODE_en` in its definition. When OCP Lock is enabled, slot 15 is always cleared even if `SS_STRAP_GENERIC[3][0]` = 1.
+
+#### Error escalation
+
+Any of the following trigger all key entries to be flushed:
+- `boot_flow_error` = MuBi4True
+- `kv_monitor_alert` (dest_valid mismatch or write count violation)
+- `kv_multi_write_err` (existing: multiple crypto engines writing simultaneously)
+
+The error is reported as `CPTRA_HW_ERROR_FATAL.kv_error[4]`, which is unmasked and always triggers an interrupt.
+
+### DOE lockdown
+
+Once the boot flow monitor detects that execution has transitioned to FMC or RT (i.e., `boot_flow_fmc` or `boot_flow_rt` is True), the DOE command register is forcibly cleared via `doe_cmd_lock`. This prevents any new de-obfuscation commands from being issued after the DICE key derivation phase is complete, closing the window for an attacker to re-derive secrets using the obfuscation key.
+
+### Error register summary
+
+| Register | Bit | Field | Trigger |
+| :------- | :-- | :---- | :------ |
+| CPTRA_HW_ERROR_FATAL | 4 | kv_error | Boot flow error OR KV monitor alert |
+| CPTRA_HW_ERROR_FATAL | 5 | shadow_storage_err | ICCM region shadow register storage fault |
+| CPTRA_HW_ERROR_NON_FATAL | 3 | shadow_update_err | ICCM region shadow register phase mismatch |
+
+### DICE slot assignments
+
+The following table documents the key vault slot assignments used by the DICE key derivation chain (defined in `kv_defines_pkg.sv`):
+
+| Slot | Constant | Purpose |
+| :--- | :------- | :------ |
+| 0 | KV_SLOT_SI_IDEV | Silicon IDevID private key |
+| 1 | KV_SLOT_SI_LDEV | Silicon LDevID private key |
+| 2 | KV_SLOT_KEY_LADDER | Key ladder intermediate |
+| 4 | KV_SLOT_RT_CDI | Runtime CDI |
+| 5 | KV_SLOT_RT_ECDSA | Runtime ECDSA private key |
+| 6 | KV_SLOT_FMC_CDI | FMC CDI (accumulates through DICE chain) |
+| 7 | KV_SLOT_FMC_ECDSA | FMC ECDSA private key |
+| 8 | KV_SLOT_FMC_MLDSA | FMC MLDSA private key |
+| 9 | KV_SLOT_RT_MLDSA | Runtime MLDSA private key |
+
+### Conditionally-preserved slot assignments
+
+The following slots are populated by optional features and conditionally preserved by enforcement (but not monitored):
+
+| Slot | Constant | Feature | Preserved when |
+| :--- | :------- | :------ | :------------- |
+| 15 | KV_SLOT_STABLE_OWNER | Stable Owner Root Key | `stable_owner_key_en` (subsystem mode, strap[3][0]=1, OCP Lock off) |
+| 16 | OCP_LOCK_RT_OBF_KEY_KV_SLOT | MDK (runtime obfuscation key) | `ocp_lock_mode_en` |
+| 22 | OCP_LOCK_HEK_SEED_KV_SLOT | HEK seed | `ocp_lock_mode_en` |
+| 23 | OCP_LOCK_MEK_KV_SLOT | MEK (key release) | **Never** (always cleared — DMA-accessible, security risk) |
+
+### ROM programming sequence
+
+ROM must perform the following steps before jumping to FMC:
+
+1. Complete all DICE key derivations (DOE decrypt, HMAC, ECC keygen, MLDSA keygen)
+2. Program ICCM region registers with 2-phase writes:
+   - Write `INTERNAL_ICCM_FMC_START_ADDR` twice with the same value
+   - Write `INTERNAL_ICCM_FMC_END_ADDR` twice with the same value
+   - Write `INTERNAL_ICCM_RT_START_ADDR` twice with the same value
+   - Write `INTERNAL_ICCM_RT_END_ADDR` twice with the same value
+3. Set `INTERNAL_ICCM_REGION_LOCK` (W1S) -- this arms the boot flow monitor
+4. Jump to FMC entry point in ICCM
+
+The first instruction fetch from the FMC region triggers the ROM->FMC transition, at which point the KV monitor validates slot state and enforcement atomically applies locks and clears.
+
+
 ## Data vault
 
 Data vault is a set of generic scratch pad registers with specific lock functionality and clearable on cold and warm resets.
@@ -2574,7 +2845,7 @@ The following hardware and ROM/FW enhancements support the OCP L.O.C.K. (a.k.a. 
 ### Additional Registers, Straps, and Macros for OCP LOCK
 
 - **`SS_OCP_LOCK_CTRL.LOCK_IN_PROGRESS`**  
-  A status/control bit used to enforce the new key vault (KV) rules required by OCP LOCK. Write-1-to-set, meaning that, once-enabled, OCP LOCK functionality will persist until the register is cleared by a cold reset. See the dedicated section below for details on the behaviors this register enables.
+  A status/control bit used to enforce the new key Vvult (KV) rules required by OCP LOCK. Write-1-to-set, meaning that, once-enabled, OCP LOCK functionality will persist until the register is cleared by a cold reset. See the dedicated section below for details on the behaviors this register enables.
 
 - **`ss_ocp_lock_en`** (constant-value input strap) with a corresponding bit in **`CPTRA_HW_CONFIG`** register named **`OCP_LOCK_MODE_en`**:
   - Enables Caliptra ROM to perform OCP LOCK operations (e.g., using DOE for HEK seed de-obfuscation, Key Release via AXI DMA).

@@ -15,7 +15,6 @@
 
 #include "caliptra_defines.h"
 #include "caliptra_isr.h"
-#include "riscv_hw_if.h"
 #include "riscv-csr.h"
 #include <string.h>
 #include <stdint.h>
@@ -70,11 +69,11 @@ void main() {
     //Inject random FE
     SEND_STDOUT_CTRL(0xed);
     //Start FE and store in KV23
-    lsu_write_32(CLP_DOE_REG_DOE_CTRL, 0x0000005e); //Entry 23, FE flow;
+    *doe_ctrl = 0x0000005e; //Entry 23, FE flow;
 
     // //Poll for DOE status
     while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-        doe_status_int = lsu_read_32(CLP_DOE_REG_DOE_STATUS);
+        doe_status_int = *doe_status;
         doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
     }
 
@@ -84,11 +83,11 @@ void main() {
     //Inject random UDS
     SEND_STDOUT_CTRL(0xec);
     //Start UDS and store in KV3
-    lsu_write_32(CLP_DOE_REG_DOE_CTRL, 0x0000000D);
+    *doe_ctrl = 0x0000000D;
 
     // //Poll for DOE status
     while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-        doe_status_int = lsu_read_32(CLP_DOE_REG_DOE_STATUS);
+        doe_status_int = *doe_status;
         doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
     }
 }

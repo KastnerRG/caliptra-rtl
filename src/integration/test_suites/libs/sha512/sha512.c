@@ -24,10 +24,10 @@ extern volatile caliptra_intr_received_s cptra_intr_rcv;
 void wait_for_sha512_intr(){
     VPRINTF(LOW, "SHA512 flow in progress...\n");
     while((cptra_intr_rcv.sha512_error == 0) & (cptra_intr_rcv.sha512_notif == 0)){
-        asm_wfi(); // "Wait for interrupt"
+        __asm__ volatile ("wfi"); // "Wait for interrupt"
         // Sleep during SHA512 operation to allow ISR to execute and show idle time in sims
         for (uint16_t slp = 0; slp < 100; slp++) {
-            asm_nop(); // Sleep loop as "nop"
+            __asm__ volatile ("nop"); // Sleep loop as "nop"
         }
     };
     //VPRINTF(LOW, "Received SHA512 error intr with status = %d\n", cptra_intr_rcv.sha512_error);
@@ -94,8 +94,7 @@ void sha512_flow(sha512_io block, uint8_t mode, sha512_io digest){
     reg_ptr = (uint32_t*) CLP_SHA512_REG_SHA512_BLOCK_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_BLOCK_31) {
-        lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]);
-        reg_ptr++;
+        *reg_ptr++ = block.data[offset++];
     }
 
     // Enable SHA512 core 
@@ -110,7 +109,7 @@ void sha512_flow(sha512_io block, uint8_t mode, sha512_io digest){
     VPRINTF(LOW, "Load DIGEST data from SHA512\n");
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_DIGEST_15) {
-        sha512_digest[offset] = lsu_read_32((uintptr_t) reg_ptr);
+        sha512_digest[offset] = *reg_ptr;
         if (sha512_digest[offset] != digest.data[offset]) {
             VPRINTF(ERROR, "At offset [%d], sha_digest data mismatch!\n", offset);
             VPRINTF(ERROR, "Actual   data: 0x%x\n", sha512_digest[offset]);
@@ -137,16 +136,14 @@ void sha512_restore_flow(sha512_io block, uint8_t mode, sha512_io restore_digest
     reg_ptr = (uint32_t*) CLP_SHA512_REG_SHA512_BLOCK_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_BLOCK_31) {
-        lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]);
-        reg_ptr++;
+        *reg_ptr++ = block.data[offset++];
     }
 
     // Write SHA512 restore DIGEST
     reg_ptr = (uint32_t*) CLP_SHA512_REG_SHA512_DIGEST_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_DIGEST_15) {
-        lsu_write_32((uintptr_t) reg_ptr, restore_digest.data[offset++]);
-        reg_ptr++;
+        *reg_ptr++ = restore_digest.data[offset++];
     }
 
     // Enable SHA512 core 
@@ -162,7 +159,7 @@ void sha512_restore_flow(sha512_io block, uint8_t mode, sha512_io restore_digest
     VPRINTF(LOW, "Load DIGEST data from SHA512\n");
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_SHA512_REG_SHA512_DIGEST_15) {
-        sha512_digest[offset] = lsu_read_32((uintptr_t) reg_ptr);
+        sha512_digest[offset] = *reg_ptr;
         if (sha512_digest[offset] != digest.data[offset]) {
             VPRINTF(ERROR, "At offset [%d], sha_digest data mismatch!\n", offset);
             VPRINTF(ERROR, "Actual   data: 0x%x\n", sha512_digest[offset]);

@@ -15,7 +15,6 @@
 
 #include "caliptra_defines.h"
 #include "caliptra_isr.h"
-#include "riscv_hw_if.h"
 #include "riscv-csr.h"
 #include <string.h>
 #include <stdint.h>
@@ -76,35 +75,47 @@ void main() {
 
     VPRINTF(LOW,"UDS flow\n");
     //Write UDS IV
-    lsu_write_32(CLP_DOE_REG_DOE_IV_0, IV_DATA_UDS0);
-    lsu_write_32(CLP_DOE_REG_DOE_IV_1, IV_DATA_UDS1);
-    lsu_write_32(CLP_DOE_REG_DOE_IV_2, IV_DATA_UDS2);
-    lsu_write_32(CLP_DOE_REG_DOE_IV_3, IV_DATA_UDS3);
+    *doe_iv_0 = IV_DATA_UDS0;
+    *doe_iv_1 = IV_DATA_UDS1;
+    *doe_iv_2 = IV_DATA_UDS2;
+    *doe_iv_3 = IV_DATA_UDS3;
 
     //Start UDS and store in KV0
-    lsu_write_32(CLP_DOE_REG_DOE_CTRL, 0x00000001);
+    *doe_ctrl = 0x00000001;
 
+    //Sleep
+    // for (uint16_t i = 0; i < 2; i++){
+    //     printf("%d\n", i);
+    // }
     VPRINTF(LOW, "Dummy print\n");
-    ((void)0); // VeeR CSR write (no-op under FireBridge)
+    __asm__ volatile ("csrwi    %0, %1" \
+                    : /* output: none */        \
+                    : "i" (0x7c6), "i" (0x03)  /* input : immediate  */ \
+                    : /* clobbers: none */);
+    // set_mit0_and_halt_core(mitb0, mie_timer0_en);
+    //halt_core();
+    // set_mit0(mitb1, mie_timer0_en);
+    // halt_core();
 
     // //Poll for DOE status
     while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-        doe_status_int = lsu_read_32(CLP_DOE_REG_DOE_STATUS);
+        doe_status_int = *doe_status;
         doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
     }
+    
 
     VPRINTF(LOW, "Core back up\n");
     //Restart UDS flow after core wakes up - should not go through
     //Write UDS IV
     VPRINTF(LOW, "Writing IV a 2nd time\n");
-    lsu_write_32(CLP_DOE_REG_DOE_IV_0, IV_DATA_UDS3);
-    lsu_write_32(CLP_DOE_REG_DOE_IV_1, IV_DATA_UDS2);
-    lsu_write_32(CLP_DOE_REG_DOE_IV_2, IV_DATA_UDS1);
-    lsu_write_32(CLP_DOE_REG_DOE_IV_3, IV_DATA_UDS0);
+    *doe_iv_0 = IV_DATA_UDS3;
+    *doe_iv_1 = IV_DATA_UDS2;
+    *doe_iv_2 = IV_DATA_UDS1;
+    *doe_iv_3 = IV_DATA_UDS0;
 
     //Start UDS and store in KV0
     VPRINTF(LOW, "Starting UDS again\n");
-    lsu_write_32(CLP_DOE_REG_DOE_CTRL, 0x00000001);
+    *doe_ctrl = 0x00000001;
 
     //Enable clk gating and halt core
     // SEND_STDOUT_CTRL(0xf2);
@@ -114,7 +125,7 @@ void main() {
     // //Poll for DOE status
     doe_status_int = 0x00000000;
         while(doe_status_int != (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK)) {
-            doe_status_int = lsu_read_32(CLP_DOE_REG_DOE_STATUS);
+            doe_status_int = *doe_status;
             doe_status_int = doe_status_int & (DOE_REG_DOE_STATUS_VALID_MASK | DOE_REG_DOE_STATUS_READY_MASK) ;
         }
     

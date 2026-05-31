@@ -185,7 +185,7 @@ module caliptra_top_tb_services
     logic                       inject_kv23_small_rand_key;
     logic                       inject_kv23_rand_length_key;
     logic                       inject_random_data;
-    logic                       release_kv_inject_flags;
+    logic [1:0]                 release_kv_inject_flags;
     logic                       check_pcr_ecc_signing;
     logic                       check_pcr_mldsa_signing;
     logic                       inject_single_msg_for_ecc_mldsa;
@@ -358,14 +358,16 @@ module caliptra_top_tb_services
     //         8'h9e        - Inject invalid pubkey_y into ECC
     //         8'h9f        - Inject AES key into KV
     //         8'ha0        - Inject HMAC384_KEY to kv_key register
-    //         8'ha1: 8'ha7 - Unused
-    //         8'ha8        - Inject zero as HMAC_KEY to kv_key register
+    //         8'ha1        - Inject zero as MLDSA_SEED/MLKEM_MSG to kv_key register (8 dwords)
+    //         8'ha2: 8'ha7 - Unused
+    //         8'ha8        - Inject zero as HMAC_KEY/MLKEM_SEED to kv_key register (16 dwords)
     //         8'ha9        - Inject HMAC512_KEY to kv_key register
     //         8'haa        - Inject HMAC512_BLOCK to kv_key16 register
     //         8'hab        - Inject MLDSA SEED to kv_key22/23 register
     //         8'hac        - Inject ECC seed to kv_key22/23 register
     //         8'had        - Inject ECC_PRIVKEY to kv_key register
-    //         8'hae: 8'haf - Unused
+    //         8'hae        - Inject fixed MLKEM SEED (mlkem_seed_tb) to keyvault
+    //         8'haf        - Inject fixed MLKEM MSG (mlkem_msg_tb) to keyvault
     //         8'hb0        - Inject HMAC512_BLOCK to kv_key register
     //         8'hb1        - Inject MLKEM SEED to keyvault
     //         8'hb2        - Inject MLKEM MSG to keyvault
@@ -377,7 +379,11 @@ module caliptra_top_tb_services
     //         8'hb8        - AXI Error Injection Disabled
     //         8'hb9        - Enable scan mode and run DOE back to back
     //         8'hba        - Enable scan mode with KV write
-    //         8'hbb:bf     - Unused
+    //         8'hbb        - Enable KV boot phase transition enforcement
+    //         8'hbc        - Force MuBi4 glitch on boot_flow_fmc (invalid encoding, auto-release after 5 clocks)
+    //         8'hbd        - Unused
+    //         8'hbe        - Force shadow storage bit-flip on ICCM fmc_start shadow register (auto-release after 5 clocks)
+    //         8'hbf        - Unused
     //         8'hc0:       - Inject MLDSA_SEED to kv_key register
     //         8'hc1: 8'hc7 - Unused
     //         8'hc8        - Inject key 0x0 into slot 16 for AES
@@ -583,6 +589,11 @@ module caliptra_top_tb_services
     logic [0:15][31:0]   hmac512_block_tb = 512'h_e7f1293c6f23a53289143df1399e784cb71180e3830c3869fd725fe78f0b6480559d6344edc1aaf64b7d0701e78672d2_55555555555555555555555555555555;
     logic [0:15][31:0]   mldsa_seed_tb    = 512'h_2d5cf89c46768a850768f0d4a243fe283fcee4d537071d12675fd1279340000a_55555555555555555555555555555555_00000000000000000000000000000000; //fixme padded with junk
     logic [0:15][31:0]   aes256_key_tb    = 512'hbc623095823dafe190998314fedbac4258395063234564532123adfcefda2344_0000000000000000000000000000000000000000000000000000000000000000;
+    // seed_z = 99E3246884181F8E1DD44E0C7629093330221FD67D9B7D6E1510B2DBAD8762F7
+    // seed_d = 49AC8B99BB1E6A8EA818261F8BE68BDEAA52897E7EC6C40B530BC760AB77DCE3
+    logic [0:15][31:0]   mlkem_seed_tb    = 512'h_E3DC77AB60C70B530BC4C67E7E8952AADE8BE68B1F2618A88E6A1EBB998BAC49_F76287ADDBB210156E7D9B7DD61F2230330929760C4ED41D8E1F18846824E399;
+    // msg = 59C5154C04AE43AAFF32700F081700389D54BEC4C37C088B1C53F66212B12C72
+    logic [0:15][31:0]   mlkem_msg_tb     = 512'h_722CB11262F6531C8B087CC3C4BE549D380017080F7032FFAA43AE044C15C559_0000000000000000000000000000000000000000000000000000000000000000;
     logic [0:15][31:0]   ecc_privkey_random;
     logic [0:15][31:0]   mldsa_seed_random;
     logic [15:0][31:0]   mlkem_seed_random;
@@ -606,11 +617,10 @@ module caliptra_top_tb_services
             mlkem_msg_random[8 + i] = 32'h0;
         end
     end
-    //always_comb mlkem_seed_random = {mlkem_test_vector.seed_z,mlkem_test_vector.seed_d};
-    //always_comb mlkem_msg_random = {256'h0,mlkem_test_vector.msg};
 
     genvar dword_i, slot_id;
     generate
+    if (!UVM_TB) begin : inject_kv_function
         for (slot_id=0; slot_id < 24; slot_id++) begin : inject_slot_loop
             for (dword_i=0; dword_i < 16; dword_i++) begin : inject_dword_loop
                 always @(negedge clk) begin
@@ -691,11 +701,24 @@ module caliptra_top_tb_services
                         inject_hmac_key <= 1'b1;
                         release_kv_inject_flags <= '0;
                         force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.we = 1'b1;
-                        force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next = 8'b1;
+                        force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next = 8'b0100_0001; // HMAC + MLKEM_SEED (both 16 dwords)
                         force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.we = 1'b1;
                         force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.next = 'd15;
                         force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.we = 1'b1;
                         force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next = '0;
+                    end
+                    //inject zero MLDSA seed / MLKEM msg to kv key reg (both 8 dwords)
+                    else if(((WriteData[7:0]) == 8'ha1) && mailbox_write) begin
+                        inject_mldsa_seed <= 1'b1;
+                        release_kv_inject_flags <= '0;
+                        if (slot_id == KV_ENTRY_FOR_MLDSA_SIGNING) begin
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next = 8'b1000_0100; // MLDSA_SEED + MLKEM_MSG (both 8 dwords)
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.next = 'd7;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next = '0;
+                        end
                     end
                     //inject valid hmac_key dest and hmac384_key value to key reg
                     else if((WriteData[7:0] == 8'ha0) && mailbox_write) begin
@@ -915,6 +938,32 @@ module caliptra_top_tb_services
                             force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next = mlkem_msg_random[dword_i][31 : 0];
                         end
                     end
+                    //inject fixed mlkem seed (mlkem_seed_tb) to kv key reg
+                    else if((WriteData[7:0] == 8'hae) && mailbox_write) begin
+                        inject_mlkem_kv <= 1'b1;
+                        release_kv_inject_flags <= '0;
+                        if ((WriteData[12:8] == slot_id)) begin
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next = 8'b0100_0000;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.next = 'd15;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next = mlkem_seed_tb[dword_i][31 : 0];
+                        end
+                    end
+                    //inject fixed mlkem msg (mlkem_msg_tb) to kv key reg
+                    else if((WriteData[7:0] == 8'haf) && mailbox_write) begin
+                        inject_mlkem_kv <= 1'b1;
+                        release_kv_inject_flags <= '0;
+                        if ((WriteData[12:8] == slot_id)) begin
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next = 8'b1000_0000;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.next = 'd7;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.we = 1'b1;
+                            force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next = mlkem_msg_tb[dword_i][31 : 0];
+                        end
+                    end
                     else if((WriteData[7:0] == 8'h9f) && mailbox_write) begin
                         inject_aes_seed <= 1'b1;
                         release_kv_inject_flags <= '0;
@@ -955,27 +1004,29 @@ module caliptra_top_tb_services
                         inject_kv16_zero_key <= '0;
                         inject_kv23_small_rand_key <= '0;
                         inject_kv23_rand_length_key <= '0;
-                        if (release_kv_inject_flags) begin
-                        release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.we;
-                        release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next;
-                        release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.we;
-                        release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.next;
-                        release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.we;
-                        release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next;
-                    end
-                        else begin
+                        if (release_kv_inject_flags == 2'b01) begin
+                            release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.we;
+                            release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next;
+                            release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.we;
+                            release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.next;
+                            release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.we;
+                            release `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next;
+                            release_kv_inject_flags <= 2'b10;
+                        end
+                        else if (release_kv_inject_flags == 2'b00) begin
                             force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.we = 1'b0;
                             force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].dest_valid.next = '0;
                             force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.we = 1'b0;
                             force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_CTRL[slot_id].last_dword.next = '0;
                             force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.we = 1'b0;
                             force `CPTRA_TOP_PATH.key_vault1.kv_reg_hwif_in.KEY_ENTRY[slot_id][dword_i].data.next = '0;
+                            release_kv_inject_flags <= 2'b01;
                         end
-                        release_kv_inject_flags <= '1;
                     end
                 end
             end // inject_dword_loop
         end // inject_slot_loop
+    end // inject_kv_function
     endgenerate
 
     //Keyvault check for MLKEM
@@ -1108,7 +1159,7 @@ module caliptra_top_tb_services
         else
             security_state = '{device_lifecycle: DEVICE_PRODUCTION, debug_locked: 1'b1}; // DebugLocked & Production
 
-            unlock_security_state = 1'b0; // Default to not unlocking security state
+        unlock_security_state = 1'b0; // Default to not unlocking security state
     end
 `endif
     always @(negedge clk) begin
@@ -1198,14 +1249,14 @@ module caliptra_top_tb_services
 
     always @(negedge clk) begin
         // Hintsum: force if makehint failure (with enable) OR mldsa timeout
-        if ((inject_makehint_failure && `CPTRA_TOP_PATH.abr_inst.makehint_inst.hintgen_enable) || inject_mldsa_timeout)
+        if ((inject_makehint_failure && `CPTRA_TOP_PATH.abr_inst.makehint_inst.mem_rd_data_valid) || inject_mldsa_timeout)
             force `CPTRA_TOP_PATH.abr_inst.makehint_inst.hintsum = 'd80;
         else if (!inject_makehint_failure && !inject_mldsa_timeout)  // Only release when both are clear
             release `CPTRA_TOP_PATH.abr_inst.makehint_inst.hintsum;
 
         // Invalid: force only for normcheck with specific conditions
         if (inject_normcheck_failure &&
-            `CPTRA_TOP_PATH.abr_inst.norm_check_inst.norm_check_ctrl_inst.check_enable &&
+            `CPTRA_TOP_PATH.abr_inst.norm_check_inst.norm_check_ctrl_inst.norm_check_enable &&
             (`CPTRA_TOP_PATH.abr_inst.norm_check_inst.mode == normcheck_mode_random))
             force `CPTRA_TOP_PATH.abr_inst.norm_check_inst.invalid = 1'b1;
         else if (!inject_normcheck_failure)
@@ -1778,6 +1829,50 @@ endgenerate //IV_NO
         end
     end
 
+
+    // Enable boot flow monitoring (TB command 0xbb)
+    // Forces the disable signal to 0, which enables monitoring.
+    // By default the boot flow monitoring is disabled in simulation so legacy tests work
+    always @(posedge clk) begin
+        if ((WriteData[7:0] == 8'hbb) && mailbox_write) begin
+            force `CPTRA_TOP_PATH.sim_boot_flow_monitor_dis = 1'b0;
+            $display("TB: Boot flow monitor enabled");
+        end
+    end
+
+    // MuBi4 glitch injection on boot_flow_fmc (auto-release after 5 clocks)
+    logic [63:0] mubi4_glitch_cycle;
+    initial mubi4_glitch_cycle = '0;
+    always @(posedge clk) begin
+        if ((WriteData[7:0] == 8'hbc) && mailbox_write) begin
+            force `CPTRA_TOP_PATH.boot_flow_fmc = 4'hA;
+            mubi4_glitch_cycle <= cycleCnt;
+            $display("TB: Forced boot_flow_fmc to invalid MuBi4 (4'hA)");
+        end
+        else if (mubi4_glitch_cycle != '0 && cycleCnt == mubi4_glitch_cycle + 'd5) begin
+            release `CPTRA_TOP_PATH.boot_flow_fmc;
+            mubi4_glitch_cycle <= '0;
+            $display("TB: Released boot_flow_fmc force (auto)");
+        end
+    end
+
+    // Shadow storage bit-flip injection on ICCM fmc_start (auto-release after 5 clocks)
+    logic [63:0] shadow_flip_cycle;
+    initial shadow_flip_cycle = '0;
+    always @(posedge clk) begin
+        if ((WriteData[7:0] == 8'hbe) && mailbox_write) begin
+            force `CPTRA_TOP_PATH.soc_ifc_top1.u_shadow_fmc_start.shadow_reg.q[0] =
+                  `CPTRA_TOP_PATH.soc_ifc_top1.u_shadow_fmc_start.committed_reg.q[0];
+            shadow_flip_cycle <= cycleCnt;
+            $display("TB: Forced shadow storage bit-flip on fmc_start");
+        end
+        else if (shadow_flip_cycle != '0 && cycleCnt == shadow_flip_cycle + 'd5) begin
+            release `CPTRA_TOP_PATH.soc_ifc_top1.u_shadow_fmc_start.shadow_reg.q[0];
+            shadow_flip_cycle <= '0;
+            $display("TB: Released shadow storage force (auto)");
+        end
+    end
+
     logic inject_mlkem_zeroize_kv_read;
     logic inject_zeroize_to_mlkem;
     always@(posedge clk or negedge cptra_rst_b) begin
@@ -1934,9 +2029,12 @@ endgenerate //IV_NO
 
     endtask
 
+
     task mlkem_testvector_generator();
-        int fd;
+        int fd, fd_py;
         string input_fname, output_fname, cmd, line;
+        string py_script;
+
         bit [31:0] seed_d[];
         bit [31:0] seed_z[];
         bit [31:0] ek[];
@@ -1945,86 +2043,151 @@ endgenerate //IV_NO
         bit [31:0] ciphertext[];
         bit [31:0] sharedkey[];
 
-        seed_d = new[8];
-        seed_z = new[8];
-        msg    = new[8];
-        ek     = new[392];
-        dk     = new[792];
+        seed_d     = new[8];
+        seed_z     = new[8];
+        msg        = new[8];
+        ek         = new[392];
+        dk         = new[792];
         ciphertext = new[392];
-        sharedkey = new[8];
+        sharedkey  = new[8];
 
-        //randomize the inputs
-        for (int i = 0; i < 8; i++) begin
-            seed_d[i] = $urandom();
-            seed_z[i] = $urandom();
-            msg[i] = $urandom();
+        // --- If-else based on presence of the Python generator ---
+        py_script = "ml-kem/random_test_ml_kem.py";
+        fd_py = $fopen(py_script, "r"); // open for read to test existence
+
+        if (fd_py != 0) begin
+            // --------------------
+            // Python path (original flow)
+            // --------------------
+            $fclose(fd_py);
+
+            // 1) Randomize the inputs
+            for (int i = 0; i < 8; i++) begin
+                seed_d[i] = $urandom();
+                seed_z[i] = $urandom();
+                msg[i]    = $urandom();
+            end
+
+            // 2) Write the python-readable KEYGEN input file
+            input_fname = "ml-kem/tv/keygen_ext_input.txt";
+            fd = $fopen(input_fname, "w");
+            if (fd == 0) $error("Cannot open %s for writing", input_fname);
+            // line1: operation code
+            $fwrite(fd, "1\n");
+            // line2-3: z, d as hex strings
+            write_file(fd, 8, seed_z);
+            write_file(fd, 8, seed_d);
+            $fclose(fd);
+
+            // 3) Invoke the python generator for KEYGEN
+            cmd = $sformatf("python3.9 ml-kem/random_test_ml_kem.py 1 -i %s -o ml-kem/tv/keygen_ext_output.txt", input_fname);
+            $display("## Running: %s", cmd);
+            if ($system(cmd) != 0) $error("External Python script failed");
+
+            // 4) Read back EK and DK from the output file
+            output_fname = "ml-kem/tv/keygen_ext_output.txt";
+            fd = $fopen(output_fname, "r");
+            if (fd == 0) $error("Cannot open %s for reading", output_fname);
+            // skip lines 1-3 (op, z, d)
+            void'($fgets(line, fd));
+            void'($fgets(line, fd));
+            void'($fgets(line, fd));
+            read_line(fd, 392, ek);
+            read_line(fd, 792, dk);
+            $fclose(fd);
+
+            // 5) Write the python-readable ENCAP input file
+            input_fname = "ml-kem/tv/encap_ext_input.txt";
+            fd = $fopen(input_fname, "w");
+            if (fd == 0) $error("Cannot open %s for writing", input_fname);
+            // line1: operation code
+            $fwrite(fd, "2\n");
+            // line2-3: msg, ek as hex strings
+            write_file(fd, 8, msg);
+            write_file(fd, 392, ek);
+            $fclose(fd);
+
+            // 6) Invoke the python generator for ENCAP
+            cmd = $sformatf("python3.9 ml-kem/random_test_ml_kem.py 2 -i %s -o ml-kem/tv/encap_ext_output.txt", input_fname);
+            $display("## Running: %s", cmd);
+            if ($system(cmd) != 0) $error("External Python script failed");
+
+            // 7) Read back sharedkey and ciphertext from the output file
+            output_fname = "ml-kem/tv/encap_ext_output.txt";
+            fd = $fopen(output_fname, "r");
+            if (fd == 0) $error("Cannot open %s for reading", output_fname);
+            // skip lines 1-3 (op, msg, ek)
+            void'($fgets(line, fd));
+            void'($fgets(line, fd));
+            void'($fgets(line, fd));
+            read_line(fd, 8,   sharedkey);
+            read_line(fd, 392, ciphertext);
+            $fclose(fd);
+
+        end else begin
+            // --------------------
+            // No Python file -- fallback to fixed files
+            // --------------------
+            $display("## Python generator not found (%s). Using fixed input/output files.", py_script);
+
+            // KEYGEN fixed input: line1 op, line2 z (8), line3 d (8)
+            input_fname = "ml_kem_fixed/keygen_ext_fixed_input.txt";
+            fd = $fopen(input_fname, "r");
+            if (fd == 0) $error("Cannot open %s for reading", input_fname);
+            void'($fgets(line, fd));            // skip op
+            read_line(fd, 8, seed_z);           // z
+            read_line(fd, 8, seed_d);           // d
+            $fclose(fd);
+
+            // KEYGEN fixed output: line1 op, line2 z, line3 d, then ek (392), dk (792)
+            output_fname = "ml_kem_fixed/keygen_ext_fixed_output.txt";
+            fd = $fopen(output_fname, "r");
+            if (fd == 0) $error("Cannot open %s for reading", output_fname);
+            void'($fgets(line, fd));            // skip op
+            void'($fgets(line, fd));            // skip z echo
+            void'($fgets(line, fd));            // skip d echo
+            read_line(fd, 392, ek);             // ek
+            read_line(fd, 792, dk);             // dk
+            $fclose(fd);
+
+            // ENCAP fixed input: line1 op, line2 msg (8), line3 ek (392)
+            input_fname = "ml_kem_fixed/encap_ext_fixed_input.txt";
+            fd = $fopen(input_fname, "r");
+            if (fd == 0) $error("Cannot open %s for reading", input_fname);
+            void'($fgets(line, fd));            // skip op
+            read_line(fd, 8,   msg);            // msg
+            read_line(fd, 392, ek);             // ek (overwrites if different from keygen output)
+            $fclose(fd);
+
+            // ENCAP fixed output: line1 op, line2 msg, line3 ek, then sharedkey (8), ciphertext (392)
+            output_fname = "ml_kem_fixed/encap_ext_fixed_output.txt";
+            fd = $fopen(output_fname, "r");
+            if (fd == 0) $error("Cannot open %s for reading", output_fname);
+            void'($fgets(line, fd));            // skip op
+            void'($fgets(line, fd));            // skip msg echo
+            void'($fgets(line, fd));            // skip ek echo
+            read_line(fd, 8,   sharedkey);      // sharedkey
+            read_line(fd, 392, ciphertext);     // ciphertext
+            $fclose(fd);
+
         end
-        //Generate EK and DK
-        input_fname = "ml-kem/tv/keygen_ext_input.txt";
-        fd = $fopen(input_fname, "w");
-        if (fd == 0) $error("Cannot open %s for writing", input_fname);
-        // line1: operation code
-        $fwrite(fd, "1\n");
-        // line2-3: z, d as hex strings
-        write_file(fd, 8, seed_z);
-        write_file(fd, 8, seed_d);
-        $fclose(fd);
-        // 3) invoke the python generator
-        cmd = $sformatf("python3.9 ml-kem/random_test_ml_kem.py 1 -i %s -o ml-kem/tv/keygen_ext_output.txt",input_fname);
-        $display("## Running: %s", cmd);
-        if ($system(cmd) != 0) $error("External Python script failed");
-        // 4) read back ek and dk from the output file
-        output_fname = "ml-kem/tv/keygen_ext_output.txt";
-        fd = $fopen(output_fname, "r");
-        if (fd == 0) $error("Cannot open %s for reading", output_fname);
-        // skip lines 1–3 (op, z, d)
-        void'($fgets(line, fd));
-        void'($fgets(line, fd));
-        void'($fgets(line, fd));
-        read_line(fd, 392, ek);
-        read_line(fd, 792, dk);
-        $fclose(fd);
-        // 2) write the python‐readable input file
-        input_fname = "ml-kem/tv/encap_ext_input.txt";
-        fd = $fopen(input_fname, "w");
-        if (fd == 0) $error("Cannot open %s for writing", input_fname);
-        // line1: operation code
-        $fwrite(fd, "2\n");
-        // line2-3: z, d as hex strings
-        write_file(fd, 8, msg);
-        write_file(fd, 392, ek);
-        $fclose(fd);
-        // 3) invoke the python generator
-        cmd = $sformatf("python3.9 ml-kem/random_test_ml_kem.py 2 -i %s -o ml-kem/tv/encap_ext_output.txt", input_fname);
-        $display("## Running: %s", cmd);
-        if ($system(cmd) != 0) $error("External Python script failed");
-        // 4) read back ek and dk from the output file
-        output_fname = "ml-kem/tv/encap_ext_output.txt";
-        fd = $fopen(output_fname, "r");
-        if (fd == 0) $error("Cannot open %s for reading", output_fname);
-        // skip lines 1–3 (op, m, ek)
-        void'($fgets(line, fd));
-        void'($fgets(line, fd));
-        void'($fgets(line, fd));
-        read_line(fd, 8, sharedkey);
-        read_line(fd, 392, ciphertext);
-        $fclose(fd);
 
-        //Assign to test vector struct
+        // Assign to test vector struct
         for (int i = 0; i < 8; i++) begin
-            mlkem_test_vector.seed_d[i] = seed_d[i];
-            mlkem_test_vector.seed_z[i] = seed_z[i];
-            mlkem_test_vector.msg[i] = msg[i];
+            mlkem_test_vector.seed_d[i]    = seed_d[i];
+            mlkem_test_vector.seed_z[i]    = seed_z[i];
+            mlkem_test_vector.msg[i]       = msg[i];
             mlkem_test_vector.sharedkey[i] = sharedkey[i];
         end
         for (int i = 0; i < 392; i++) begin
-            mlkem_test_vector.ek[i] = ek[i];
+            mlkem_test_vector.ek[i]         = ek[i];
             mlkem_test_vector.ciphertext[i] = ciphertext[i];
         end
         for (int i = 0; i < 792; i++) begin
             mlkem_test_vector.dk[i] = dk[i];
         end
     endtask
+
 
     task mldsa_input_hex_gen(); //mode = CTRL.value-1
         int fd_r;
@@ -2350,10 +2513,13 @@ endgenerate //IV_NO
 
     end
 
+    logic [31:0] timeout1, timeout2;
     always @(negedge clk) begin
         if((WriteData[7:0] == 8'hea) && mailbox_write) begin
-            force `CPTRA_TOP_PATH.soc_ifc_top1.timer1_timeout_period = {32'h0000_0000, $urandom_range(32'h0000_0001,32'h0000_0FFF)};
-            force `CPTRA_TOP_PATH.soc_ifc_top1.timer2_timeout_period = {32'h0000_0000, $urandom_range(32'h0000_0001,32'h0000_0FFF)};
+            timeout1 = $urandom_range(32'h0000_0001,32'h0000_0FFF);
+            timeout2 = $urandom_range(32'h0000_0001,32'h0000_0FFF);
+            force `CPTRA_TOP_PATH.soc_ifc_top1.timer1_timeout_period = {32'h0000_0000, timeout1};
+            force `CPTRA_TOP_PATH.soc_ifc_top1.timer2_timeout_period = {32'h0000_0000, timeout2};
         end
         //Use 'hF1 code to reset these values in the test
     end

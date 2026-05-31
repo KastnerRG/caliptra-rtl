@@ -60,7 +60,7 @@ void main(){
     VPRINTF(LOW, "Load SIGN_R data from ECC\n");
     reg_ptr = (uint32_t *) CLP_ECC_REG_ECC_SIGN_R_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_R_11) {
-        VPRINTF(LOW, "%x", lsu_read_32((uintptr_t)(reg_ptr)));
+        VPRINTF(LOW, "%x", *reg_ptr);
         reg_ptr++;
     }
     VPRINTF(LOW, "\n");
@@ -68,7 +68,7 @@ void main(){
     VPRINTF(LOW, "Load SIGN_S data from ECC\n");
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SIGN_S_11) {
-        VPRINTF(LOW, "%x", lsu_read_32((uintptr_t)(reg_ptr))); 
+        VPRINTF(LOW, "%x", *reg_ptr); 
         reg_ptr++;
     }
     VPRINTF(LOW, "\n");

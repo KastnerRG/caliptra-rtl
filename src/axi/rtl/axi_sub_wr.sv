@@ -114,14 +114,10 @@ module axi_sub_wr import axi_pkg::*; #(
     logic [AW-1:0]       txn_addr_nxt;
     logic                txn_active;
     logic                txn_wvalid;
-	    logic                txn_wready;
-	    logic                txn_allow; // If an exclusive-write with no match to tracked context, don't complete write to component
+    logic                txn_wready;
+    logic                txn_allow; // If an exclusive-write with no match to tracked context, don't complete write to component
     logic                txn_err;
     logic                txn_final_beat;
-    logic                dp_last;
-    logic [AW-1:0]       dp_addr;
-    logic [DW-1:0]       dp_wdata;
-    logic [BC-1:0]       dp_wstrb;
     `ifdef CALIPTRA_AXI_SUB_EX_EN
     logic [ID_NUM-1:0]   txn_ex_match; // Current access matches the flagged exclusive context
                                        // Possible for multiple bits to be set -- match of multiple contexts
@@ -246,26 +242,14 @@ module axi_sub_wr import axi_pkg::*; #(
 
     // Asserts on the final COMPONENT INF beat, which means data does not
     // arrive at endpoint until after C_LAT clocks
-`ifdef CALIPTRA_FB_AXI
-	    assign last = dp_last || (txn_ctx.len == 8'd0);
-	    assign txn_final_beat = dv_pre && (!txn_allow || !hld) && last;
-`else
-	    assign last = dp_last;
-	    assign txn_final_beat = dv_pre && (!txn_allow || !hld) && last;
-`endif
+    assign txn_final_beat = dv_pre && (!txn_allow || !hld) && last;
 
 
     // --------------------------------------- //
     // Address Calculations                    //
     // --------------------------------------- //
     // Force aligned address to component
-`ifdef CALIPTRA_FB_AXI
-    assign dp_addr = (txn_ctx.addr == '0 && s_axi_if.awaddr[AW-1:0] != '0) ? s_axi_if.awaddr[AW-1:0] : txn_ctx.addr;
-`else
-    assign dp_addr = txn_ctx.addr;
-`endif
-
-    assign addr = {dp_addr[AW-1:BW],BW'(0)};
+    assign addr = {txn_ctx.addr[AW-1:BW],BW'(0)};
     assign user = txn_ctx.user;
     assign id   = txn_ctx.id;
     assign wsize = txn_ctx.size;
@@ -340,18 +324,10 @@ module axi_sub_wr import axi_pkg::*; #(
                   s_axi_if.wlast}),
         .o_valid(dv_pre          ),
         .i_ready(!hld            ),
-	        .o_data ({dp_wdata,
-	                  dp_wstrb,
-	                  dp_last }      )
-	    );
-
-`ifdef CALIPTRA_FB_AXI
-    assign wdata = (dp_wstrb == '0 && s_axi_if.wstrb != '0) ? s_axi_if.wdata : dp_wdata;
-    assign wstrb = (dp_wstrb == '0 && s_axi_if.wstrb != '0) ? s_axi_if.wstrb : dp_wstrb;
-`else
-    assign wdata = dp_wdata;
-    assign wstrb = dp_wstrb;
-`endif
+        .o_data ({wdata,
+                  wstrb,
+                  last }         )
+    );
 
     assign dv = dv_pre && txn_allow;
 
@@ -392,15 +368,19 @@ module axi_sub_wr import axi_pkg::*; #(
     // --------------------------------------- //
     // Formal Properties                       //
     // --------------------------------------- //
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWVALID, s_axi_if.awvalid, clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWREADY, s_axi_if.awready, clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWADDR , (s_axi_if.awvalid ? s_axi_if.awaddr  : '0), clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWBURST, (s_axi_if.awvalid ? s_axi_if.awburst : '0), clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWSIZE , (s_axi_if.awvalid ? s_axi_if.awsize  : '0), clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWLEN  , (s_axi_if.awvalid ? s_axi_if.awlen   : '0), clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWUSER , (s_axi_if.awvalid ? s_axi_if.awuser  : '0), clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWID   , (s_axi_if.awvalid ? s_axi_if.awid    : '0), clk, !rst_n)
-    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWLOCK , (s_axi_if.awvalid ? s_axi_if.awlock  : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWVALID , s_axi_if.awvalid, clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWREADY , s_axi_if.awready, clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWADDR  , (s_axi_if.awvalid ? s_axi_if.awaddr   : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWBURST , (s_axi_if.awvalid ? s_axi_if.awburst  : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWSIZE  , (s_axi_if.awvalid ? s_axi_if.awsize   : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWLEN   , (s_axi_if.awvalid ? s_axi_if.awlen    : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWUSER  , (s_axi_if.awvalid ? s_axi_if.awuser   : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWID    , (s_axi_if.awvalid ? s_axi_if.awid     : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWLOCK  , (s_axi_if.awvalid ? s_axi_if.awlock   : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWCACHE , (s_axi_if.awvalid ? s_axi_if.awcache  : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWPROT  , (s_axi_if.awvalid ? s_axi_if.awprot   : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWQOS   , (s_axi_if.awvalid ? s_axi_if.awqos    : '0), clk, !rst_n)
+    `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_AWREGION, (s_axi_if.awvalid ? s_axi_if.awregion : '0), clk, !rst_n)
     `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_WVALID , s_axi_if.wvalid , clk, !rst_n)
     `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_WREADY , s_axi_if.wready , clk, !rst_n)
     `CALIPTRA_ASSERT_KNOWN(AXI_SUB_X_WDATA  , (s_axi_if.wvalid ? s_axi_if.wdata : '0), clk, !rst_n)

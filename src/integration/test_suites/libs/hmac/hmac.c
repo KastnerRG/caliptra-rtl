@@ -23,10 +23,10 @@ extern volatile caliptra_intr_received_s cptra_intr_rcv;
 void wait_for_hmac_intr(){
     VPRINTF(LOW, "HMAC flow in progress...\n");
     while((cptra_intr_rcv.hmac_error == 0) & (cptra_intr_rcv.hmac_notif == 0)){
-        asm_wfi(); // "Wait for interrupt"
+        __asm__ volatile ("wfi"); // "Wait for interrupt"
         // Sleep during HMAC operation to allow ISR to execute and show idle time in sims
         for (uint16_t slp = 0; slp < 100; slp++) {
-            asm_nop(); // Sleep loop as "nop"
+            __asm__ volatile ("nop"); // Sleep loop as "nop"
         }
     };
     //VPRINTF(LOW, "Received HMAC error intr with status = %d\n", cptra_intr_rcv.hmac_error);
@@ -40,7 +40,7 @@ void hmac_zeroize(){
 
 void write_hmac_reg(volatile uint32_t *base_addr, uint32_t *data, uint32_t size) {
     for (uint32_t i = 0; i < size; i++) {
-        lsu_write_32((uintptr_t) &base_addr[i], data[i]);
+        base_addr[i] = data[i];
     }
 }
 
@@ -63,7 +63,7 @@ void hmac384_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         VPRINTF(LOW, "Try to Overwrite Key data in HMAC384\n");
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_11) {
-            lsu_write_32((uintptr_t) reg_ptr, 0); reg_ptr++;
+            *reg_ptr++ = 0;
         }
 
         // Check that HMAC KEY is loaded (poll for valid or error)
@@ -94,7 +94,7 @@ void hmac384_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_11) {
-            lsu_write_32((uintptr_t) reg_ptr, key.data[offset++]); reg_ptr++;
+            *reg_ptr++ = key.data[offset++];
         }
     }
 
@@ -107,7 +107,7 @@ void hmac384_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         VPRINTF(LOW, "Try to Overwrite Block data in HMAC\n");
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-            lsu_write_32((uintptr_t) reg_ptr, 0); reg_ptr++;
+            *reg_ptr++ = 0;
         }
 
         // Check that HMAC BLOCK is loaded (poll for valid or error)
@@ -135,7 +135,7 @@ void hmac384_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-            lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]); reg_ptr++;
+            *reg_ptr++ = block.data[offset++];
         }
     }
 
@@ -143,7 +143,7 @@ void hmac384_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
     reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_11) {
-        lsu_write_32((uintptr_t) reg_ptr, lfsr_seed.data[offset++]); reg_ptr++;
+        *reg_ptr++ = lfsr_seed.data[offset++];
     }
 
     // if we want to store the results into kv
@@ -201,7 +201,7 @@ void hmac384_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
             reg_ptr = (uint32_t *) CLP_HMAC_REG_HMAC512_TAG_0;
             offset = 0;
             while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_TAG_11) {
-                hmac_tag[offset] = lsu_read_32((uintptr_t) reg_ptr);
+                hmac_tag[offset] = *reg_ptr;
                 if (hmac_tag[offset] != tag.data[offset]) {
                     VPRINTF(LOW, "At offset [%d], hmac_tag data mismatch!\n", offset);
                     VPRINTF(LOW, "Actual   data: 0x%x\n", hmac_tag[offset]);
@@ -235,7 +235,7 @@ void hmac512_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         VPRINTF(LOW, "Try to Overwrite Key data in HMAC512\n");
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_15) {
-            lsu_write_32((uintptr_t) reg_ptr, 0); reg_ptr++;
+            *reg_ptr++ = 0;
         }
 
         // Check that HMAC KEY is loaded (poll for valid or error)
@@ -265,7 +265,7 @@ void hmac512_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_15) {
-            lsu_write_32((uintptr_t) reg_ptr, key.data[offset++]); reg_ptr++;
+            *reg_ptr++ = key.data[offset++];
         }
     }
 
@@ -277,7 +277,7 @@ void hmac512_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         VPRINTF(LOW, "Try to Overwrite Block data in HMAC\n");
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-            lsu_write_32((uintptr_t) reg_ptr, 0); reg_ptr++;
+            *reg_ptr++ = 0;
         }
 
         // Check that HMAC BLOCK is loaded (poll for valid or error)
@@ -305,7 +305,7 @@ void hmac512_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
         reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-            lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]); reg_ptr++;
+            *reg_ptr++ = block.data[offset++];
         }
     }
 
@@ -313,7 +313,7 @@ void hmac512_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
     reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_11) {
-        lsu_write_32((uintptr_t) reg_ptr, lfsr_seed.data[offset++]); reg_ptr++;
+        *reg_ptr++ = lfsr_seed.data[offset++];
     }
 
     // if we want to store the results into kv
@@ -374,7 +374,7 @@ void hmac512_flow(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag, BO
             reg_ptr = (uint32_t *) CLP_HMAC_REG_HMAC512_TAG_0;
             offset = 0;
             while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_TAG_15) {
-                hmac_tag[offset] = lsu_read_32((uintptr_t) reg_ptr);
+                hmac_tag[offset] = *reg_ptr;
                 if (hmac_tag[offset] != tag.data[offset]) {
                     VPRINTF(ERROR, "At offset [%d], hmac_tag data mismatch!\n", offset);
                     VPRINTF(ERROR, "Actual   data: 0x%x\n", hmac_tag[offset]);
@@ -409,7 +409,7 @@ void hmac512_flow_return(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io 
         VPRINTF(LOW, "Try to Overwrite Key data in HMAC512\n");
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_15) {
-            lsu_write_32((uintptr_t) reg_ptr, 0); reg_ptr++;
+            *reg_ptr++ = 0;
         }
 
         // Check that HMAC KEY is loaded (poll for valid or error)
@@ -439,7 +439,7 @@ void hmac512_flow_return(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io 
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_15) {
-            lsu_write_32((uintptr_t) reg_ptr, key.data[offset++]); reg_ptr++;
+            *reg_ptr++ = key.data[offset++];
         }
     }
 
@@ -452,7 +452,7 @@ void hmac512_flow_return(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io 
         VPRINTF(LOW, "Try to Overwrite Block data in HMAC\n");
         reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-            lsu_write_32((uintptr_t) reg_ptr, 0); reg_ptr++;
+            *reg_ptr++ = 0;
         }
 
         // Check that HMAC BLOCK is loaded (poll for valid or error)
@@ -480,7 +480,7 @@ void hmac512_flow_return(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io 
         reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-            lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]); reg_ptr++;
+            *reg_ptr++ = block.data[offset++];
         }
     }
 
@@ -488,7 +488,7 @@ void hmac512_flow_return(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io 
     reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_11) {
-        lsu_write_32((uintptr_t) reg_ptr, lfsr_seed.data[offset++]); reg_ptr++;
+        *reg_ptr++ = lfsr_seed.data[offset++];
     }
 
     // if we want to store the results into kv
@@ -535,7 +535,7 @@ void hmac512_flow_return(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io 
         reg_ptr = (uint32_t *) CLP_HMAC_REG_HMAC512_TAG_0;
         offset = 0;
         while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_TAG_15) {
-            actual_tag[offset] = lsu_read_32((uintptr_t) reg_ptr);
+            actual_tag[offset] = *reg_ptr;
             reg_ptr++;
             offset++;
         }
@@ -559,20 +559,20 @@ void hmac512_flow_csr(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag
     reg_ptr         = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_15) {
-        lsu_write_32((uintptr_t) reg_ptr, key.data[offset++]); reg_ptr++;
+        *reg_ptr++ = key.data[offset++];
     }
 
     reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-        lsu_write_32((uintptr_t) reg_ptr, block.data[offset++]); reg_ptr++;
+        *reg_ptr++ = block.data[offset++];
     }
 
     // Program LFSR_SEED
     reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_11) {
-        lsu_write_32((uintptr_t) reg_ptr, lfsr_seed.data[offset++]); reg_ptr++;
+        *reg_ptr++ = lfsr_seed.data[offset++];
     }
 
     // Enable HMAC core
@@ -601,7 +601,7 @@ void hmac512_flow_csr(hmac_io key, hmac_io block, hmac_io lfsr_seed, hmac_io tag
     reg_ptr = (uint32_t *) CLP_HMAC_REG_HMAC512_TAG_0;
     offset = 0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_TAG_15) {
-        hmac_tag[offset] = lsu_read_32((uintptr_t) reg_ptr);
+        hmac_tag[offset] = *reg_ptr;
         if (hmac_tag[offset] != tag.data[offset]) {
             VPRINTF(LOW, "At offset [%d], hmac_tag data mismatch!\n", offset);
             VPRINTF(LOW, "Actual   data: 0x%x\n", hmac_tag[offset]);

@@ -95,9 +95,9 @@ static int check_swwe_allowed(uint32_t reg_addr, uint32_t new_val,
 static void wait_for_hmac_complete(void) {
     VPRINTF(LOW, "[WAIT] Waiting for HMAC completion interrupt...\n");
     while ((cptra_intr_rcv.hmac_error == 0) && (cptra_intr_rcv.hmac_notif == 0)) {
-        asm_wfi();
+        __asm__ volatile ("wfi");
         for (uint16_t slp = 0; slp < 100; slp++) {
-            asm_nop();
+            __asm__ volatile ("nop");
         }
     }
     VPRINTF(LOW, "[WAIT] HMAC done: notif=%d, error=%d\n",
@@ -108,9 +108,9 @@ static void wait_for_hmac_complete(void) {
 static void wait_for_ecc_complete(void) {
     VPRINTF(LOW, "[WAIT] Waiting for ECC completion interrupt...\n");
     while ((cptra_intr_rcv.ecc_error == 0) && (cptra_intr_rcv.ecc_notif == 0)) {
-        asm_wfi();
+        __asm__ volatile ("wfi");
         for (uint16_t slp = 0; slp < 100; slp++) {
-            asm_nop();
+            __asm__ volatile ("nop");
         }
     }
     VPRINTF(LOW, "[WAIT] ECC done: notif=%d, error=%d\n",
@@ -168,7 +168,7 @@ static int test_hmac_kv_swwe_lock(void) {
     // ------------------------------------------------------------------
     reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_KEY_15)
-        lsu_write_32((uintptr_t)(reg_ptr++), 0x0b0b0b0b);
+        *reg_ptr++ = 0x0b0b0b0b;
 
     lsu_write_32(CLP_HMAC_REG_HMAC512_BLOCK_0,          0x48692054);
     lsu_write_32(CLP_HMAC_REG_HMAC512_BLOCK_1,          0x68657265);
@@ -179,7 +179,7 @@ static int test_hmac_kv_swwe_lock(void) {
 
     reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_0;
     while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_11)
-        lsu_write_32((uintptr_t)(reg_ptr++), 0xDEADBEEF);
+        *reg_ptr++ = 0xDEADBEEF;
 
     // ------------------------------------------------------------------
     // Step 3: Start HMAC, then IMMEDIATELY attempt attack writes.
@@ -327,15 +327,15 @@ static int test_ecc_kv_swwe_lock(void) {
     // ------------------------------------------------------------------
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_SEED_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_SEED_11)
-        lsu_write_32((uintptr_t)(reg_ptr++), 0xDEADBEEF);
+        *reg_ptr++ = 0xDEADBEEF;
 
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_NONCE_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_NONCE_11)
-        lsu_write_32((uintptr_t)(reg_ptr++), 0xCAFEBABE);
+        *reg_ptr++ = 0xCAFEBABE;
 
     reg_ptr = (uint32_t*) CLP_ECC_REG_ECC_IV_0;
     while (reg_ptr <= (uint32_t*) CLP_ECC_REG_ECC_IV_11)
-        lsu_write_32((uintptr_t)(reg_ptr++), 0x12345678);
+        *reg_ptr++ = 0x12345678;
 
     // ------------------------------------------------------------------
     // Step 3: Start ECC keygen then IMMEDIATELY attempt attack writes.
