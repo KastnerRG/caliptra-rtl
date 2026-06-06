@@ -784,9 +784,9 @@ void main() {
         reg_ptr = (uint32_t *) CLP_ABR_REG_MLKEM_ENCAPS_KEY_BASE_ADDR;
         offset = 0;
         while (offset < MLKEM_EK_SIZE) {
-            if (*reg_ptr != 0) {
+            if (lsu_read_32((uintptr_t)reg_ptr) != 0) {
                 VPRINTF(ERROR, "At offset [%d], mlkem encaps key mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)reg_ptr));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
@@ -826,9 +826,9 @@ void main() {
         reg_ptr = (uint32_t *) CLP_ABR_REG_MLKEM_CIPHERTEXT_BASE_ADDR;
         offset = 0;
         while (offset < MLKEM_CIPHERTEXT_SIZE) {
-            if (*reg_ptr != 0) {
+            if (lsu_read_32((uintptr_t)reg_ptr) != 0) {
                 VPRINTF(ERROR, "At offset [%d], mlkem_ciphertext mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)reg_ptr));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);
@@ -869,9 +869,9 @@ void main() {
         reg_ptr = (uint32_t *) CLP_ABR_REG_MLKEM_SHARED_KEY_0;
         offset = 0;
         while (offset < MLKEM_SHAREDKEY_SIZE) {
-            if (*reg_ptr != 0) {
+            if (lsu_read_32((uintptr_t)reg_ptr) != 0) {
                 VPRINTF(ERROR, "At offset [%d], mlkem_shared_key mismatch!\n", offset);
-                VPRINTF(ERROR, "Actual   data: 0x%x\n", *reg_ptr);
+                VPRINTF(ERROR, "Actual   data: 0x%x\n", lsu_read_32((uintptr_t)reg_ptr));
                 VPRINTF(ERROR, "Expected data: 0x%x\n", 0);
                 SEND_STDOUT_CTRL(fail_cmd);
                 while(1);

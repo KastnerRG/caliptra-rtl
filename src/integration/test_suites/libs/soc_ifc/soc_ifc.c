@@ -751,10 +751,23 @@ uint8_t soc_ifc_axi_dma_wait_idle_w_error_expected(uint8_t clr_lock, uint8_t err
     
     uint32_t reg;
     uint32_t error_observed = 0;
+    uint32_t poll_count = 0;
+    const uint32_t poll_limit = 10000000;
 
     // Check completion
     reg = lsu_read_32(CLP_AXI_DMA_REG_STATUS0);
     while ((reg & AXI_DMA_REG_STATUS0_BUSY_MASK) && !(reg & AXI_DMA_REG_STATUS0_ERROR_MASK)) {
+        if (++poll_count == poll_limit) {
+            VPRINTF(FATAL, "AXI DMA wait timeout\n");
+            VPRINTF(FATAL, "AXI DMA STATUS0: 0x%x\n", reg);
+            VPRINTF(FATAL, "AXI DMA STATUS1: 0x%x\n", lsu_read_32(CLP_AXI_DMA_REG_STATUS1));
+            VPRINTF(FATAL, "AXI DMA ERROR_INTR: 0x%x\n", lsu_read_32(CLP_AXI_DMA_REG_INTR_BLOCK_RF_ERROR_INTERNAL_INTR_R));
+            VPRINTF(FATAL, "AXI DMA NOTIF_INTR: 0x%x\n", lsu_read_32(CLP_AXI_DMA_REG_INTR_BLOCK_RF_NOTIF_INTERNAL_INTR_R));
+            VPRINTF(FATAL, "AES STATUS: 0x%x\n", lsu_read_32(CLP_AES_REG_STATUS));
+            VPRINTF(FATAL, "AES CTRL_GCM_SHADOWED: 0x%x\n", lsu_read_32(CLP_AES_REG_CTRL_GCM_SHADOWED));
+            SEND_STDOUT_CTRL(0x1);
+            while(1);
+        }
         reg = lsu_read_32(CLP_AXI_DMA_REG_STATUS0);
     }
 

@@ -26,10 +26,44 @@
 #endif
 
 vluint64_t main_time = 0;
+Vcaliptra_top_tb* tb = nullptr;
+#if VM_TRACE
+  #if VM_TRACE_VCD
+    VerilatedVcdC* tfp = nullptr;
+  #elif VM_TRACE_FST
+    VerilatedFstC* tfp = nullptr;
+  #endif
+#endif
 
 double sc_time_stamp () {
  return main_time;
 }
+
+#ifdef CALIPTRA_FB_AHB
+extern "C" unsigned char get_clk();
+
+extern "C" void step_time_veri() {
+#if VM_TRACE
+  if (tfp != nullptr) {
+    tfp->dump(main_time);
+  }
+#endif
+  main_time += 1;
+  if (main_time % 50 == 0) {
+    tb->core_clk = !tb->core_clk;
+  }
+  tb->eval();
+}
+
+extern "C" void at_posedge_clk() {
+  vluint8_t prev_clk = get_clk();
+  while (true) {
+    step_time_veri();
+    if (prev_clk == 0 && get_clk() == 1) break;
+    prev_clk = get_clk();
+  }
+}
+#endif
 
 
 int main(int argc, char** argv) {
@@ -37,17 +71,17 @@ int main(int argc, char** argv) {
 
   Verilated::commandArgs(argc, argv);
 
-  Vcaliptra_top_tb* tb = new Vcaliptra_top_tb;
+  tb = new Vcaliptra_top_tb;
 
   // init trace dump
 #if VM_TRACE
   Verilated::traceEverOn(true);
   #if VM_TRACE_VCD
-    VerilatedVcdC* tfp = new VerilatedVcdC;
+    tfp = new VerilatedVcdC;
     tb->trace (tfp, 24);
     tfp->open ("sim.vcd");
   #elif VM_TRACE_FST
-    VerilatedFstC* tfp = new VerilatedFstC;
+    tfp = new VerilatedFstC;
     tb->trace (tfp, 24);
     tfp->open ("sim.fst");
   #endif

@@ -161,6 +161,12 @@ VPATH = $(TEST_DIR) $(BUILD_DIR) $(TBDIR) $(RISCV_HW_IF_DIR) $(ISR_DIR) $(PRINTF
 # Use eval to expand env variables in the .vf file
 $(eval TBFILES = $(shell cat $(TBDIR)/../config/caliptra_top_tb.vf | grep -v '+incdir+'))
 
+# Default VFs; overridden to a VeeR-stripped version for FB builds (see ifeq FB_HAL below)
+VERILATOR_VF = $(TBDIR)/../config/caliptra_top_tb.vf
+# VCS always needs Axi4PC.sv stripped (it has #!/bin/sh -h stub under `ifndef VERILATOR)
+VCS_BASE_VF  = $(BUILD_DIR)/caliptra_top_tb_vcs_base.vf
+VCS_VF       = $(VCS_BASE_VF)
+
 #defines  = $(BUILD_DIR)/common_defines.vh
 #defines += $(RV_ROOT)/design/include/el2_def.sv
 #defines += $(BUILD_DIR)/el2_pdef.vh
@@ -213,7 +219,7 @@ includes = -I$(BUILD_DIR)
 #               |            |                |            |               |            |            |              |
 #               v            v                v            v               v            v            v              v
 #                                                                                                -Wno-SIDEEFFECT
-suppress = -Wno-WIDTH -Wno-UNOPTFLAT -Wno-LITENDIAN -Wno-CMPCONST -Wno-MULTIDRIVEN -Wno-UNPACKED                 -Wno-LATCH
+suppress = -Wno-WIDTH -Wno-WIDTHTRUNC -Wno-UNOPTFLAT -Wno-LITENDIAN -Wno-CMPCONST -Wno-MULTIDRIVEN -Wno-UNPACKED -Wno-SIDEEFFECT -Wno-MISINDENT -Wno-LATCH
 
 # CFLAGS for verilator generated Makefiles. Without -std=c++17 it
 # complains for `auto` variables
@@ -233,9 +239,114 @@ TB_DPI_SRCS := $(addprefix $(CALIPTRA_ROOT)/src/integration/test_suites/libs/,$(
 
 # Testbench sources
 TB_VERILATOR_SRCS = $(TBDIR)/test_caliptra_top_tb.cpp $(TB_DPI_SRCS)
+TB_VERILATOR_EXE_SRCS = test_caliptra_top_tb.cpp
+TB_VERILATOR_EXE_DEPS =
+FB_ROOT ?= $(abspath $(CALIPTRA_ROOT)/../firebridge)
+
+# FireBridge HAL (Mode B, REAL firmware, AHB-only): VeeR held in reset and
+# fb_ahb_vip drives the internal AHB bus in its place; the tb's normal soc_bfm
+# boots Caliptra over the external AXI exactly as in non-FB runs. It links the
+# UNMODIFIED test firmware, compiled natively as C, into the verilated
+# executable. The firmware's lsu_*/printf/SEND_STDOUT_CTRL are redirected through
+# the FB HAL headers (firebridge/fb_hal/*) into ahb.cpp, which drives the
+# internal AHB bus.
+$(VCS_BASE_VF): $(TBDIR)/../config/caliptra_top_tb.vf
+	awk '/Axi4PC\.sv/ {next} {print}' $< > $@
+
+FB_HAL ?= 0
+# FB=1 is a convenience alias for FB_HAL=1
+ifeq ($(FB),1)
+FB_HAL := 1
+endif
+ifeq ($(FB_HAL),1)
+CFLAGS += -DCALIPTRA_FB_AHB -DSIM -I$(FB_ROOT)/h -I$(CLP_REG_DIR)
+TB_VERILATOR_EXE_SRCS += $(FB_ROOT)/c/ahb.cpp
+TB_VERILATOR_EXE_DEPS += $(FB_ROOT)/c/ahb.cpp
+FB_HAL_RTL_SRCS = $(FB_ROOT)/sv/fb_ahb_vip.sv \
+                  $(FB_ROOT)/sv/el2_veer_wrapper_stub.sv
+# Strip the heavy VeeR RTL implementation files from the VF; keep only the
+# small definitions that non-VeeR code still needs (el2_pkg, el2_mem_if,
+# common_defines) plus the +incdir+ entries.  VeeR is ifdef'd out under
+# CALIPTRA_FB_AHB so Verilator never elaborates it — this just avoids parsing
+# ~50 large RTL files, cutting compile time by ~40-50%.
+FB_VF     = $(BUILD_DIR)/caliptra_top_tb_noveer.vf
+VCS_FB_VF = $(BUILD_DIR)/caliptra_top_tb_vcs_fb.vf
+VERILATOR_VF = $(FB_VF)
+VCS_VF       = $(VCS_FB_VF)
+
+$(FB_VF): $(TBDIR)/../config/caliptra_top_tb.vf
+	awk '/veer_el2\/rtl\// && \
+	     !/el2_pdef\.vh/ && \
+	     !/el2_def\.sv/ && \
+	     !/common_defines\.sv/ && \
+	     !/el2_mem_if\.sv/ && \
+	     !/mem_lib\.sv/ && \
+	     !/beh_lib\.sv/ && \
+	     !/\+incdir\+/ \
+	     {next} {print}' $< > $@
+
+# VCS FB VF: strips VeeR RTL AND Axi4PC.sv (which has an intentional
+# #!/bin/sh syntax-error stub guarded by `ifndef VERILATOR — harmless to
+# exclude since Axi4PC is only instantiated under `ifdef AXI4PC).
+$(VCS_FB_VF): $(TBDIR)/../config/caliptra_top_tb.vf
+	awk '/veer_el2\/rtl\// && \
+	     !/el2_pdef\.vh/ && \
+	     !/el2_def\.sv/ && \
+	     !/common_defines\.sv/ && \
+	     !/el2_mem_if\.sv/ && \
+	     !/mem_lib\.sv/ && \
+	     !/beh_lib\.sv/ && \
+	     !/\+incdir\+/ \
+	     {next} /Axi4PC\.sv/ {next} {print}' $< > $@
+# Firmware sources compiled natively (as C) and linked into the executable.
+# FB_FW_LIB_SRCS / FB_FW_LIB_DIRS let each test pull in the crypto lib(s) it uses.
+FB_FW_CC ?= gcc
+FB_FW_LIB_SRCS ?= $(CALIPTRA_ROOT)/src/integration/test_suites/libs/sha256/sha256.c
+FB_FW_LIB_DIRS ?= $(CALIPTRA_ROOT)/src/integration/test_suites/libs/sha256
+# Upstream firmware (test + crypto libs): compiled with the FB HAL headers first
+# and entry points renamed so they neither break C++ rules (void main) nor
+# clobber libc symbols Verilator's runtime relies on (printf/putchar/puts/stdout).
+FB_FW_UPSTREAM_SRCS = $(TEST_DIR)/$(TESTNAME).c $(FB_FW_LIB_SRCS)
+# FireBridge-side sources: provide the fw_* sinks + init_interrupts stub, using
+# the host C library normally, so they are compiled WITHOUT the renames.
+FB_FW_FB_SRCS = $(FB_ROOT)/c/printf.c $(FB_ROOT)/c/isr.c
+FB_FW_SRCS = $(FB_FW_UPSTREAM_SRCS) $(FB_FW_FB_SRCS)
+FB_FW_OBJS = $(foreach s,$(FB_FW_SRCS),$(BUILD_DIR)/fbfw_$(notdir $(s:.c=.o)))
+FB_FW_RENAMES = -Dmain=fw_main -Dstdout=fw_stdout \
+                -Dprintf=fw_printf -Dputchar=fw_putchar -Dputs=fw_puts
+FB_ALL_LIB_DIRS := $(wildcard $(CALIPTRA_ROOT)/src/integration/test_suites/libs/*)
+FB_FW_INCS = -I$(FB_ROOT)/c -I$(FB_ROOT)/h -I$(INCLUDES_DIR) -I$(CLP_REG_DIR) \
+             -I$(TEST_DIR) $(foreach d,$(FB_FW_LIB_DIRS),-I$(d)) \
+             -include $(FB_ROOT)/h/wfi_stub.h \
+             $(foreach d,$(FB_ALL_LIB_DIRS),-I$(d))
+FB_FW_CFLAGS ?=          # extra C flags for firmware compilation (e.g. -DCALIPTRA_INTERNAL_TRNG)
+FB_FW_STAMP = $(BUILD_DIR)/.fbfw_built
+FB_HAL_LDFLAGS = -LDFLAGS "$(FB_FW_OBJS)"
+
+$(FB_FW_STAMP): $(FB_FW_SRCS) $(FB_ROOT)/c/riscv_hw_if.h \
+                $(FB_ROOT)/h/printf.h $(HEADER_FILES)
+	@set -e; for s in $(FB_FW_UPSTREAM_SRCS); do \
+	  o=$(BUILD_DIR)/fbfw_$$(basename $${s%.c}).o; \
+	  echo "[FB_HAL] cc (upstream) $$s -> $$o"; \
+	  $(FB_FW_CC) -std=gnu11 -g -O2 -c -DFIREBRIDGE $(FB_FW_RENAMES) $(FB_FW_INCS) $(FB_FW_CFLAGS) $$s -o $$o; \
+	done; \
+	SHA3_DEFINE=$$(echo "$(FB_FW_LIB_SRCS)" | grep -q sha3 && echo "-DFIREBRIDGE_HAS_SHA3" || true); \
+	for s in $(FB_FW_FB_SRCS); do \
+	  o=$(BUILD_DIR)/fbfw_$$(basename $${s%.c}).o; \
+	  echo "[FB_HAL] cc (fb) $$s -> $$o"; \
+	  $(FB_FW_CC) -std=gnu11 -g -O2 -c -DFIREBRIDGE $$SHA3_DEFINE $(FB_FW_INCS) $$s -o $$o; \
+	done
+	@touch $@
+endif
 
 # Testbench defs
-TB_DEFS = 
+TB_DEFS =
+TB_DEFS += +define+CALIPTRA_TOP_TB
+TB_DEFS += +define+CALIPTRA_TOP=caliptra_top_tb
+TB_DEFS += +define+RV_TOP=caliptra_top_tb.caliptra_top_dut.rvtop
+ifeq ($(FB_HAL),1)
+TB_DEFS += +define+CALIPTRA_FB_AHB
+endif
 ifeq ($(CALIPTRA_INTERNAL_TRNG), 1)
 TB_DEFS += +define+CALIPTRA_INTERNAL_TRNG
 HWCFG_CFLAGS += -DCALIPTRA_HWCONFIG_TRNG_EN
@@ -255,24 +366,12 @@ endif
 ifdef FORCE_CPU_RESET
     TB_DEFS += +define+CALIPTRA_FORCE_CPU_RESET
 endif
-TB_DEFS += +define+CALIPTRA_TOP_TB
-TB_DEFS += +define+CALIPTRA_TOP=caliptra_top_tb
-TB_DEFS += +define+RV_TOP=caliptra_top_tb.caliptra_top_dut.rvtop
 
 # Run time arguments from command line
 VERILATOR_RUN_ARGS ?= ""
 
 # Add testbench lib include paths
 CFLAGS += $(TB_DPI_INCS)
-
-############# VCS Compile options #############
-VCS_COMP_OPTS += +lint=IA_CHECKFAIL
-VCS_COMP_OPTS += -assert svaext
-VCS_COMP_OPTS += +define+CLP_ASSERT_ON
-VCS_COMP_OPTS += +define+ABR_ASSERT_ON
-VCS_COMP_OPTS += -noinherit_timescale=1ns/1ps
-VCS_COMP_OPTS += +define+SIMULATION
-VCS_COMP_OPTS += $(TB_DEFS)
 
 # Targets
 all: clean verilator
@@ -288,26 +387,31 @@ clean_fw:
 
 ############ Model Builds ###############################
 
-verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TBDIR)/../config/caliptra_top_tb.vf
-	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) --cc -CFLAGS "$(CFLAGS)" \
+verilator-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_VERILATOR_SRCS) $(TB_VERILATOR_EXE_DEPS) $(FB_HAL_RTL_SRCS) $(FB_FW_STAMP) $(VERILATOR_VF)
+	set -eo pipefail; $(VERILATOR) $(TB_VERILATOR_SRCS) $(FB_HAL_RTL_SRCS) --cc -CFLAGS "$(CFLAGS)" \
 	  +libext+.v+.sv +define+RV_OPENSOURCE \
 	  --timescale 1ns/100ps \
 	  --timing \
 	  $(includes) \
 	  $(suppress) \
-	  -f $(TBDIR)/../config/caliptra_top_tb.vf --top-module caliptra_top_tb \
+	  -f $(VERILATOR_VF) --top-module caliptra_top_tb \
 	  -f $(TBDIR)/../config/caliptra_top_tb.vlt \
-	  -exe test_caliptra_top_tb.cpp --autoflush $(VERILATOR_DEBUG) \
+	  -exe $(TB_VERILATOR_EXE_SRCS) --autoflush $(VERILATOR_DEBUG) \
+	  $(FB_HAL_LDFLAGS) \
 	  $(TB_DEFS) 2>&1 | tee verilator_build.log
 	set -eo pipefail; $(MAKE) -j`nproc` -e -C obj_dir/ -f Vcaliptra_top_tb.mk $(VERILATOR_MAKE_FLAGS) VM_PARALLEL_BUILDS=1 2>&1 | tee verilator_make.log
 	touch verilator-build
 
-vcs-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_DPI_SRCS)
-	vlogan -full64 -sverilog -kdb -incr_vlogan \
-	  $(VCS_COMP_OPTS) \
-	  -f $(TBDIR)/../config/caliptra_top_tb.vf
+vcs-build: $(TBFILES) $(INCLUDES_DIR)/defines.h $(TB_DPI_SRCS) $(FB_HAL_RTL_SRCS) $(FB_FW_STAMP) $(VCS_BASE_VF) $(VCS_VF)
+	vlogan -full64 -sverilog -kdb -incr_vlogan +lint=IA_CHECKFAIL -assert svaext \
+	  +define+CLP_ASSERT_ON +define+ABR_ASSERT_ON +define+SIMULATION +define+VCS $(TB_DEFS) -noinherit_timescale=1ns/1ps \
+	  -f $(VCS_VF) \
+	  $(FB_HAL_RTL_SRCS)
 	vcs -full64 -kdb -lca -debug_access+all -j8 +vcs+lic+wait -partcomp -fastpartcomp=j8 $(COVERAGE_ARGS) \
-	  -assert enable_hier caliptra_top_tb -o simv.caliptra_top_tb +dpi -cflags "$(TB_DPI_INCS)" $(TB_DPI_SRCS)
+	  -assert enable_hier caliptra_top_tb -o simv.caliptra_top_tb +dpi \
+	  -cflags "$(TB_DPI_INCS) $(if $(filter 1,$(FB_HAL)),-DCALIPTRA_FB_AHB -DSIM -I$(FB_ROOT)/h -I$(CLP_REG_DIR))" \
+	  $(TB_DPI_SRCS) \
+	  $(if $(filter 1,$(FB_HAL)),$(FB_ROOT)/c/ahb.cpp $(FB_FW_OBJS))
 
 ############ TEST Simulation ###############################
 
@@ -393,4 +497,3 @@ help:
 	@echo Possible targets: verilator vcs irun vlog riviera help clean all verilator-build irun-build vcs-build riviera-build program.hex
 
 .PHONY: help clean clean_fw verilator vcs irun vlog riviera
-

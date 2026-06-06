@@ -137,19 +137,10 @@ void main() {
 
 
 
-    reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0;
-    offset = 0;
-    while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_31) {
-        *reg_ptr++ = block[offset++];
-    }
-
+    write_hmac_reg((volatile uint32_t*) CLP_HMAC_REG_HMAC512_BLOCK_0, block, 32);
 
     // Program LFSR_SEED
-    reg_ptr = (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_0;
-    offset = 0;
-    while (reg_ptr <= (uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_11) {
-        *reg_ptr++ = lfsr_seed_data[offset++];
-    }
+    write_hmac_reg((volatile uint32_t*) CLP_HMAC_REG_HMAC512_LFSR_SEED_0, lfsr_seed_data, 12);
 
     // if we want to store the results into kv
     // set tag DEST to write
